@@ -238,3 +238,14 @@ button { -webkit-touch-callout: none; }
 .metrik { font-size: 34px; font-weight: 700; line-height: 1.1; margin-top: 4px; }
 .aylik-kart { text-align: left; border: 1px solid var(--mor-zemin); background: #1C1B2B; }
 .grafik { display: block; margin: 2px 0; }
+
+/* sade hasta ekranı */
+.kart-baslik { font-size: 13px; font-weight: 600; color: var(--soluk2); }
+.metin-btn { background: transparent !important; color: var(--rom); padding: 4px 0; font-size: 14px; font-weight: 600; }
+.program-yazi { font-size: 14px; line-height: 1.5; margin-bottom: 4px; }
+.son-not { display: flex; gap: 10px; align-items: baseline; text-align: left; }
+.son-not .esnek { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sekmeler { display: flex; gap: 16px; margin: 6px 0 2px; overflow-x: auto; scrollbar-width: none; }
+.sekmeler::-webkit-scrollbar { display: none; }
+.sekmeler button { background: transparent !important; padding: 4px 0; font-size: 13px; color: var(--soluk); border-radius: 0; flex: none; }
+.sekmeler button.su { color: var(--yazi); font-weight: 600; box-shadow: inset 0 -2px 0 var(--rom); }

@@ -337,7 +337,10 @@ ekranlar.hasta = async ({ id }) => {
 
   const vOz = vasOzet(olcumler);
   const rOz = h.kategori === "rom" ? romOzet(olcumler, h) : [];
-  const sonNotlar = [...notlar].sort((a, b) => b.zaman - a.zaman).slice(0, 2);
+  const sonNot = [...notlar].sort((a, b) => b.zaman - a.zaman)[0];
+  // uyarı, etiket yerine alt satırda turuncu yazı
+  const uyari = !vasVar ? "ilk ölçüm alınmadı" : !bitti && sonOlcumZamani(h) ? "son ölçüm zamanı" : "";
+  const kat = h.kategori === "rom" ? `ROM${h.taraf ? " · " + (h.taraf === "sag" ? "sağ" : "sol") : ""}` : "Ağrı";
 
   return `
     ${ustBar(kardes.length > 1 ? `<span class="soluk" style="font-size:13px">${h.saat}</span>
@@ -352,10 +355,8 @@ ekranlar.hasta = async ({ id }) => {
       </svg>
       <div class="esnek">
         <div class="baslik">${esc(tamAd(h))}</div>
-        <div class="satir" style="gap:6px;margin-top:4px;flex-wrap:wrap">
-          ${kategoriRozeti(h)}
-          <span class="soluk">${h.saat} · ${h.seans}/${h.toplam} seans</span>
-        </div>
+        <div class="kat-yazi" style="font-size:13px;margin-top:3px">${kat} · ${h.saat} · ${h.seans}/${h.toplam} seans</div>
+        ${uyari ? `<div class="uyari-yazi" style="font-size:13px;margin-top:2px">${uyari}</div>` : ""}
       </div>
     </div>
     ${!bitti && h.seans >= h.toplam ? `
@@ -365,15 +366,13 @@ ekranlar.hasta = async ({ id }) => {
         <div class="izgara iki"><button class="secili" data-e="ozet">Foto özet</button><button data-e="bitir">Tedaviyi bitir</button></div>
       </div>` : ""}
     ${bitti ? `<div class="kart satir ara"><span>Tedavi bitti${h.bitis ? " · " + tarihYaz(h.bitis) : ""}</span><button class="ikinci-btn" data-e="geriAl" data-id="${h.id}">Geri al</button></div>` : ""}
-    ${!vasVar ? '<div><span class="rozet r-uyari">İLK ÖLÇÜM ALINMADI</span></div>'
-      : !bitti && sonOlcumZamani(h) ? '<div><span class="rozet r-uyari">SON ÖLÇÜM ZAMANI</span></div>' : ""}
     ${h.kategori === "rom" && !h.taraf ? `
       <div class="kart"><div class="soluk" style="margin-bottom:8px">Etkilenen taraf</div>
         <div class="izgara iki"><button class="ikinci-btn" data-e="taraf" data-t="sag">Sağ</button><button class="ikinci-btn" data-e="taraf" data-t="sol">Sol</button></div></div>` : ""}
 
     <div class="vas-alan" data-kaydirma="yok">
       <div class="satir ara">
-        <span class="bolum" style="margin:0">VAS · bugün</span>
+        <span class="kart-baslik">Bugünkü VAS</span>
         <span class="satir" style="gap:10px">
           ${vasBugun ? '<button class="vas-sil" data-e="vasSil">Sil</button>' : ""}
           <b id="vasDeger" class="vas-deger ${vasBugun ? "" : "bos-deger"}">${vasBugun ? vasBugun.deger : "—"}</b>
@@ -384,25 +383,24 @@ ekranlar.hasta = async ({ id }) => {
         <div class="vas-tutamak ${vasBugun ? "" : "hayalet"}" id="vasTutamak" style="left:${((vasBugun?.deger ?? vasSon?.deger ?? 5) * 10)}%"></div>
       </div>
       <div class="vas-olcek">${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<span>${n}</span>`).join("")}</div>
-      ${!vasBugun && vasSon ? `<div class="soluk" style="margin-top:2px">Son: ${vasSon.deger} (${tarihYaz(vasSon.tarih)}) · çizgide kaydır</div>` : ""}
+      ${!vasBugun && vasSon ? `<div class="soluk" style="margin-top:2px">Son: ${vasSon.deger} · ${tarihYaz(vasSon.tarih)}</div>` : ""}
     </div>
 
-    <div class="izgara ${h.kategori === "rom" ? "uc" : "iki"}">
+    <div class="izgara ${h.kategori === "rom" ? "iki" : ""}">
       ${h.kategori === "rom" ? '<button class="ikinci-btn" data-e="rom">ROM ölç</button>' : ""}
-      <button class="ikinci-btn" data-e="notlar">Not</button>
-      <button class="ikinci-btn" data-e="ozet">Foto özet</button>
+      <button class="ikinci-btn" data-e="notlar">Not yaz</button>
     </div>
 
     <div class="kart">
-      <div class="satir ara" style="margin-bottom:8px">
-        <span class="soluk">Program${p ? " · " + tarihYaz(p.tarih) : ""}</span>
-        <button class="ikinci-btn" style="padding:6px 12px;font-size:13px" data-e="program">${p ? "Düzenle" : "Program kur"}</button>
+      <div class="satir ara" style="margin-bottom:6px">
+        <span class="kart-baslik">Program</span>
+        <button class="metin-btn" data-e="program">${p ? "Düzenle" : "Program kur"}</button>
       </div>
       ${p ? `
-        <div class="cipler" style="margin-bottom:6px">
-          ${p.cihazlar.map((c) => `<span class="rozet r-mor">${esc(c)}</span>`).join("")}
-          ${p.manuel.map((m) => `<span class="rozet r-mor">${esc(m.ad)}${m.bolge ? " · " + esc(m.bolge) : ""}</span>`).join("")}
-        </div>
+        ${p.cihazlar.length || p.manuel.length ? `<div class="program-yazi">${[
+          ...p.cihazlar.map(esc),
+          ...p.manuel.map((m) => `${esc(m.ad)}${m.bolge ? ` <span class="soluk">(${esc(m.bolge.toLocaleLowerCase("tr"))})</span>` : ""}`),
+        ].join(" · ")}</div>` : ""}
         ${p.egzersizler.map((e, i) => `
           <div class="ex-satir">
             <span class="esnek">${esc(e.ad)}${e.agirlik ? ` <span class="soluk">${String(e.agirlik).replace(".", ",")} kg</span>` : ""}</span>
@@ -413,10 +411,10 @@ ekranlar.hasta = async ({ id }) => {
 
     ${gelisimKarti(h, olcumler, vOz, rOz)}
 
-    ${sonNotlar.length ? `
-      <button class="kart" data-e="notlar" style="text-align:left">
-        <div class="soluk" style="margin-bottom:6px">Son notlar</div>
-        ${sonNotlar.map((n) => `<div style="padding:4px 0"><span class="soluk">${tarihYaz(n.tarih)}</span> <span class="not">${esc(n.metin)}</span></div>`).join("")}
+    ${sonNot ? `
+      <button class="kart son-not" data-e="notlar">
+        <span class="soluk">${ikon.not} ${tarihYaz(sonNot.tarih).slice(0, 5)}</span>
+        <span class="esnek">${esc(sonNot.metin)}</span>
       </button>` : ""}
 
     ${bitti ? "" : `<button class="tehlike-btn" data-e="bitir" style="color:var(--soluk)">Tedaviyi bitir (arşive al)</button>`}
@@ -451,14 +449,17 @@ function gelisimKarti(h, olcumler, vOz, rOz) {
   }
   return `
     <div class="kart">
-      <div class="satir ara" style="margin-bottom:6px">
-        <span class="soluk">Gelişim</span>
-        <button class="ikinci-btn" style="padding:6px 12px;font-size:13px" data-e="goster">Hastaya göster</button>
+      <div class="satir ara">
+        <span class="kart-baslik">Gelişim</span>
+        <b>${ozet}</b>
       </div>
-      ${secenekler.length > 1 ? `<div class="cipler" style="margin-bottom:4px">${secenekler.map((x) =>
-        `<button class="cip ${x.k === secim.k ? "beyaz-secili" : ""}" data-e="grafikSec" data-k="${esc(x.k)}">${esc(x.ad)}</button>`).join("")}</div>` : ""}
+      ${secenekler.length > 1 ? `<div class="sekmeler" data-kaydirma="yok">${secenekler.map((x) =>
+        `<button class="${x.k === secim.k ? "su" : ""}" data-e="grafikSec" data-k="${esc(x.k)}">${esc(x.ad)}</button>`).join("")}</div>` : ""}
       ${svg}
-      <div class="satir ara"><span class="soluk">${esc(secim.ad)} · ilk → son</span><b>${ozet}</b></div>
+      <div class="satir" style="gap:16px;margin-top:2px">
+        <button class="metin-btn" data-e="goster">Hastaya göster</button>
+        <button class="metin-btn" data-e="ozet">Foto özet</button>
+      </div>
     </div>`;
 }
 
