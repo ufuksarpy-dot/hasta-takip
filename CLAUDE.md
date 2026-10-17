@@ -146,6 +146,10 @@ kayıt oluyor).
 denendi: PIN ekranı, service worker kaydı ve önbellek, `crypto.subtle`, SheetJS.
 Güncelleme = commit + push; **`sw.js`'deki `SURUM`'u artırmadan telefon eski
 sürümü göstermeye devam eder.**
+Yeni service worker etkinleşince sayfa kendini **bir kez yeniler**
+(`controllerchange`, sürüm 6'dan beri). Menünün altında "Sürüm N" (önbellek adından).
+Sürüm 4'te kalan `kay-sag` sınıfı her yeniden çizimde ekranı soldan kaydırıyordu —
+kullanıcı "VAS değişince ekran soldan geliyor" dedi; sürüm 5'te giderildi.
 
 **PIN kaldırıldı (2026-10-17)** — yukarıdaki PIN denemeleri artık geçersiz.
 

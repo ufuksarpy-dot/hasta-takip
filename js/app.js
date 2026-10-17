@@ -698,6 +698,9 @@ ekranlar.ozet = async ({ id }) => {
 ekranlar.menu = async () => {
   const sonExcel = await db.ayarAl("sonExcel", null);
   const deneme = await denemeSayisi();
+  // sürüm: çevrimdışı önbelleğin adı (sw.js'deki SURUM), tek yerde tutulur
+  const surum = ("caches" in window ? await caches.keys() : [])
+    .find((k) => k.startsWith("hasta-takip-"))?.replace("hasta-takip-", "");
   return `
     ${ustBar("Menü")}
     <button class="liste-satir" data-e="excelSec"><span class="esnek">Excel'den içe aktar<br><span class="soluk">${sonExcel ? `Son: ${esc(sonExcel.ad)} · ${tarihYaz(sonExcel.tarih)}` : `Devam dosyası, ${SAYFA} sayfası`}</span></span>${ikon.ileri}</button>
@@ -708,6 +711,7 @@ ekranlar.menu = async () => {
     <div class="bolum">Deneme</div>
     <button class="liste-satir" data-e="denemeEkle"><span class="esnek">Deneme hastaları ekle<br><span class="soluk">Uydurma adlar, ölçümler ve programlarla</span></span>${ikon.ileri}</button>
     ${deneme ? `<button class="liste-satir" data-e="denemeSil"><span class="esnek" style="color:var(--tehlike)">Deneme hastalarını sil<br><span class="soluk">${deneme} deneme hastası · gerçek hastalara dokunmaz</span></span></button>` : ""}
+    ${surum ? `<div class="soluk" style="text-align:center;margin-top:12px">Sürüm ${surum}</div>` : ""}
   `;
 };
 
@@ -1224,7 +1228,11 @@ dokunmaDinle($ekran, {
   birakti(yon) {
     if (geciste) return;
     const hedef = yon && kaydirmaHedefi(yon);
-    if (!hedef) { kayAyarla(0, true); return; }
+    if (!hedef) {
+      kayAyarla(0, true);
+      setTimeout(() => { if (!geciste) $ekran.classList.remove("kay-gecis"); }, 220);
+      return;
+    }
     if (d.sayfa.ad === "ana") saataGit(hedef);
     else hastayaGec(hedef, yon);
   },
@@ -1274,7 +1282,18 @@ document.addEventListener("visibilitychange", () => {
 // --------------------------------------------------------- başlangıç
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js");
+  // Yeni sürüm etkinleşince bir kez yenile: yoksa telefon eski kodu açık
+  // tutmaya devam ediyor, yenisi ancak uygulama iki kez kapatılıp açılınca
+  // geliyordu. İlk kurulumda (henüz denetleyen yokken) yenileme yok.
+  if (navigator.serviceWorker.controller) {
+    let yenilendi = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (yenilendi) return;
+      yenilendi = true;
+      location.reload();
+    });
+  }
+  navigator.serviceWorker.register("sw.js").then((k) => k.update()).catch(() => {});
 }
 
 history.replaceState(d.sayfa, "");
