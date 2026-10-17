@@ -124,7 +124,13 @@ gidiş-dönüş (yanlış parola reddediliyor, dosyada ad düz metin değil).
 
 **Denenmedi:** gerçek iPhone (Safari, ana ekrana ekleme, paylaş menüsü,
 dosya seçici), gerçek devam dosyası, service worker (yalnızca https'te
-kayıt oluyor). **Henüz yayında değil** — barındırma kararı bekliyor.
+kayıt oluyor).
+
+**Yayında (2026-10-17):** GitHub Pages, https://ufuksarpy-dot.github.io/hasta-takip/
+(depo `ufuksarpy-dot/hasta-takip`, public, `main` kökü). Yayın adresinde
+denendi: PIN ekranı, service worker kaydı ve önbellek, `crypto.subtle`, SheetJS.
+Güncelleme = commit + push; **`sw.js`'deki `SURUM`'u artırmadan telefon eski
+sürümü göstermeye devam eder.**
 
 **Bilinen davranış:** "Son söz Excel'in" — bugün "Seans yapıldı"ya basıp
 sonra bugünkü yoklamayı içermeyen dosya yüklenirse seans bir geri düşer.
