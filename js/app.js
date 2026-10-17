@@ -15,6 +15,7 @@ import { yedekSifrele, yedekCoz } from "./kilit.js";
 import { ozetCiz } from "./rapor.js";
 import { denemeEkle, denemeSayisi, denemeSil } from "./deneme.js";
 import { dokunmaDinle, surukle, tiklamaYutulsunMu } from "./dokunma.js";
+import morphdom from "../vendor/morphdom.js";
 
 const $ekran = document.getElementById("ekran");
 const $dosya = document.getElementById("dosya");
@@ -27,7 +28,7 @@ const d = {
   listeler: null,
   gorunum: "kutu",      // ana ekran: "kutu" | "ozet" (ayarda saklanır)
   saatSecici: false,
-  animasyon: null,      // "sol" | "sag": sonraki çizimde kayarak gir
+  saatler: [],          // ana ekrandaki saatler (kaydırma hedefi için)
 };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
@@ -98,19 +99,15 @@ window.addEventListener("popstate", (o) => {
 let kurulumlar = [];
 const sonra = (f) => kurulumlar.push(f);
 
+// Ekran baştan yazılmaz, yalnızca değişen yerler güncellenir (morphdom):
+// VAS değişince sayfa yanıp sönmesin, kaydırma yeri ve basılı düğme korunsun.
 async function ciz() {
   const ekran = ekranlar[d.sayfa.ad] || ekranlar.ana;
   kurulumlar = [];
   try {
-    $ekran.innerHTML = await ekran(d.sayfa);
+    const html = await ekran(d.sayfa);
+    morphdom($ekran, `<main>${html}</main>`, { childrenOnly: true });
     for (const f of kurulumlar) f();
-    if (d.animasyon) {
-      const yon = d.animasyon;
-      d.animasyon = null;
-      $ekran.classList.remove("kay-sol", "kay-sag");
-      void $ekran.offsetWidth; // animasyonu yeniden başlat
-      $ekran.classList.add(`kay-${yon}`);
-    }
   } catch (h) {
     console.error(h);
     $ekran.innerHTML = `<div class="bos">Bir sorun çıktı.<br><span class="soluk">${esc(h.message)}</span><br><br><button data-e="anaya">Ana ekrana dön</button></div>`;
@@ -259,6 +256,7 @@ ekranlar.ana = async () => {
   }
 
   if (!saatler.includes(d.anaSaat)) d.anaSaat = acilisSaati(saatler);
+  d.saatler = saatler;
   const simdi = acilisSaati(saatler);
   const i = saatler.indexOf(d.anaSaat);
   const buSaat = hastalar.filter((h) => h.saat === d.anaSaat).sort(saatSirasi);
@@ -1121,23 +1119,60 @@ async function seansIsle(id, yon) {
   return h;
 }
 
-function saataGit(saat) {
-  if (!saat || saat === d.anaSaat) return;
-  d.animasyon = d.anaSaat && saat < d.anaSaat ? "sag" : "sol";
-  d.anaSaat = saat;
-  ciz();
+// ------------------------------------------------- kayarak geçiş
+// İçerik (alt bar hariç) --kay kadar yana kayar. Kaydırırken parmağı izler;
+// bırakınca eski içerik dışarı, yenisi öbür yandan içeri kayar.
+
+const bekle = (ms) => new Promise((coz) => setTimeout(coz, ms));
+
+function kayAyarla(px, yumusak) {
+  $ekran.classList.toggle("kay-gecis", yumusak);
+  $ekran.style.setProperty("--kay", `${Math.round(px)}px`);
 }
 
-// Hasta ekranında aynı saatteki bir sonraki/önceki hasta.
-function kardeseGit(adim) {
-  const i = d.kardesler?.indexOf(d.sayfa.id) ?? -1;
-  const yeni = d.kardesler?.[i + adim];
-  if (i < 0 || !yeni) return;
-  d.sayfa = { ad: "hasta", id: yeni };
-  history.replaceState(d.sayfa, "");
-  d.animasyon = adim > 0 ? "sol" : "sag";
-  ciz();
-  window.scrollTo(0, 0);
+let geciste = false;
+// yon "sol": parmak sola gitti → yeni içerik sağdan gelir
+async function gecis(yon, degistir) {
+  if (geciste) return;
+  geciste = true;
+  const w = Math.min(window.innerWidth, 560);
+  kayAyarla(yon === "sol" ? -w : w, true);
+  await bekle(160);
+  await degistir();
+  kayAyarla(yon === "sol" ? w * 0.6 : -w * 0.6, false);
+  void $ekran.offsetWidth; // yeni başlangıç yerini uygula, sonra kaydır
+  kayAyarla(0, true);
+  await bekle(200);
+  $ekran.classList.remove("kay-gecis");
+  geciste = false;
+}
+
+// Kaydırma yönünde gidilecek yer: ana ekranda saat, hasta ekranında hasta.
+function kaydirmaHedefi(yon) {
+  const adim = yon === "sol" ? 1 : -1;
+  if (d.sayfa.ad === "ana" && d.arama === null) {
+    return d.saatler[d.saatler.indexOf(d.anaSaat) + adim] || null;
+  }
+  if (d.sayfa.ad === "hasta" && d.kardesler) {
+    const i = d.kardesler.indexOf(d.sayfa.id);
+    return i < 0 ? null : d.kardesler[i + adim] || null;
+  }
+  return null;
+}
+
+function saataGit(saat) {
+  if (!saat || saat === d.anaSaat) return;
+  const yon = d.anaSaat && saat < d.anaSaat ? "sag" : "sol";
+  gecis(yon, () => { d.anaSaat = saat; return ciz(); });
+}
+
+function hastayaGec(id, yon) {
+  gecis(yon, () => {
+    d.sayfa = { ad: "hasta", id };
+    history.replaceState(d.sayfa, "");
+    window.scrollTo(0, 0);
+    return ciz();
+  });
 }
 
 function formOku() {
@@ -1181,14 +1216,17 @@ $ekran.addEventListener("click", (o) => {
 });
 
 dokunmaDinle($ekran, {
-  async kaydir(yon) {
-    if (d.sayfa.ad === "ana" && d.arama === null) {
-      const saatler = saatListesi((await db.hepsi("hastalar")).filter((h) => h.durum === "aktif"));
-      const i = saatler.indexOf(d.anaSaat);
-      saataGit(saatler[i + (yon === "sol" ? 1 : -1)]);
-    } else if (d.sayfa.ad === "hasta") {
-      kardeseGit(yon === "sol" ? 1 : -1);
-    }
+  surukluyor(dx) {
+    if (geciste || !["ana", "hasta"].includes(d.sayfa.ad)) return;
+    // gidilecek yer yoksa lastik gibi az esnesin
+    kayAyarla(kaydirmaHedefi(dx < 0 ? "sol" : "sag") ? dx : dx * 0.25, false);
+  },
+  birakti(yon) {
+    if (geciste) return;
+    const hedef = yon && kaydirmaHedefi(yon);
+    if (!hedef) { kayAyarla(0, true); return; }
+    if (d.sayfa.ad === "ana") saataGit(hedef);
+    else hastayaGec(hedef, yon);
   },
   // Ana ekrana eklenen uygulamada iPhone'un kenardan geri hareketi yok.
   kenardanGeri() {

@@ -50,6 +50,7 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 
 ## Kullanım kolaylığı (2026-10-17, kullanıcı onayladı)
 
+- kaydırma **parmağı izler** (içerik `--kay` CSS değişkeniyle kayar), bırakınca eski içerik dışarı, yenisi öbür yandan girer; gidilecek yer yoksa lastik gibi esneyip döner. Soluklaşarak giren animasyon "yenileniyor" gibi göründüğü için kaldırıldı
 - ana ekran: **sola/sağa kaydır = saat değiştir**; büyük saate dokun = saat seçici; başka saatteyken **"Şimdi"**
 - kutuda bugünün durumu: **✓** (seans yapıldı), **VAS n**
 - kutuya **basılı tut = seans yapıldı** (+ "Geri al")
@@ -109,6 +110,7 @@ klasör olduğu gibi yüklenir.
 | `js/dokunma.js` | kaydırma (saat/hasta), kenardan geri, basılı tutma, basılı tutunca tekrar, sürükleme. Tıklama yutma **süreli** (400 ms): ekran araya yeniden çizilirse bir sonraki dokunuş yutulmasın |
 | `js/deneme.js` | menüden "Deneme hastaları ekle/sil": uydurma hastalar (`kaynak: "deneme"`), ölçüm geçmişi, program, not. Sil yalnızca bunlara dokunur |
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
+| `vendor/morphdom.js` | morphdom 2.7.4 (ESM): `ciz()` ekranı baştan yazmaz, yalnızca değişeni günceller — kullanıcı "sayfa yenileniyormuş gibi" yanıp sönmeden şikâyet etti. Bu yüzden `surukle()` aynı öğeye tekrar tekrar bağlanabiliyor (dinleyici bir kez, seçenek her çizimde) |
 | `vendor/xlsx.full.min.js` | SheetJS 0.20.3 (cdn.sheetjs.com; npm'deki eski) |
 | `ikon/ikon_uret.py` | ana ekran ikonu (Pillow) |
 

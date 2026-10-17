@@ -25,14 +25,16 @@ export function tiklamaYutulsunMu() {
 /**
  * kok: dinlenen öğe
  * secenek: {
- *   kaydir(yon)          — "sol" | "sag"; yatay kaydırma bitince
+ *   surukluyor(dx)       — yatay kaydırma sürerken (sayfa parmağı izlesin)
+ *   birakti(yon | null)  — yatay kaydırma bitti: "sol" | "sag" ya da
+ *                          null (yeterince kaydırılmadı: yerine dön)
  *   kenardanGeri()       — sol kenardan sağa kaydırma
  *   uzunBas(el)          — [data-uzun] taşıyan öğede basılı tutma
  *   tekrar(el)           — [data-tekrar] taşıyan öğede basılı tutma süresince
  * }
  */
 export function dokunmaDinle(kok, secenek) {
-  let bas = null;         // { x, y, t, kenar, kilitli, el }
+  let bas = null;         // { x, y, t, kenar, kilitli, yon }
   let uzunZ = null, tekrarZ = null, tekrarA = null;
 
   const temizle = () => {
@@ -45,7 +47,8 @@ export function dokunmaDinle(kok, secenek) {
   kok.addEventListener("pointerdown", (o) => {
     if (o.pointerType === "mouse" && o.button !== 0) return;
     const kilitli = !!o.target.closest('[data-kaydirma="yok"], input, textarea');
-    bas = { x: o.clientX, y: o.clientY, t: Date.now(), kenar: o.clientX < KENAR, kilitli };
+    // yon: hareketin ilk 12 pikselinde belirlenir, sonra değişmez
+    bas = { x: o.clientX, y: o.clientY, t: Date.now(), kenar: o.clientX < KENAR, kilitli, yon: null };
     temizle();
 
     const uzun = o.target.closest("[data-uzun]");
@@ -79,20 +82,30 @@ export function dokunmaDinle(kok, secenek) {
       clearTimeout(uzunZ);
       clearTimeout(tekrarZ);
     }
+    if (bas.kilitli) return;
+    if (!bas.yon && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
+      bas.yon = Math.abs(dx) > Math.abs(dy) * 1.2 ? "yatay" : "dikey";
+    }
+    if (bas.yon === "yatay" && !bas.kenar) secenek.surukluyor?.(dx);
   });
 
   const bitir = (o) => {
     temizle();
-    if (!bas || o.type === "pointercancel") { bas = null; return; }
+    if (!bas) return;
     const dx = o.clientX - bas.x, dy = o.clientY - bas.y;
     const b = bas;
     bas = null;
     // parmak belirgin oynadıysa bu bir dokunuş değil
     if (Math.abs(dx) > 10 || Math.abs(dy) > 10) yut();
-    if (b.kilitli || Date.now() - b.t > 1000) return;
-    if (Math.abs(dx) < ESIK || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (b.kenar && dx > 0 && secenek.kenardanGeri) secenek.kenardanGeri();
-    else secenek.kaydir?.(dx < 0 ? "sol" : "sag");
+    if (b.kilitli || b.yon !== "yatay") return;
+    // ya yeterince uzun ya da kısa ama hızlı bir fiske
+    const sure = Date.now() - b.t;
+    const kabul = o.type !== "pointercancel" && (Math.abs(dx) > ESIK || (Math.abs(dx) > 30 && sure < 250));
+    if (b.kenar) {
+      if (kabul && dx > 0) secenek.kenardanGeri?.();
+      return;
+    }
+    secenek.birakti?.(kabul ? (dx < 0 ? "sol" : "sag") : null);
   };
   kok.addEventListener("pointerup", bitir);
   kok.addEventListener("pointercancel", bitir);
@@ -107,12 +120,18 @@ export function dokunmaDinle(kok, secenek) {
 /**
  * Öğe üzerinde sürükleme: parmak yeri → değer. Sürerken `degisti`, bırakınca
  * `bitti` çağrılır. Değeri hesaplamak çağıranın işi (konum → değer).
+ *
+ * Ekran yerinde güncellendiği için aynı öğe her çizimde yeniden bağlanır:
+ * dinleyiciler bir kez eklenir, seçenekler her seferinde tazelenir.
  */
-export function surukle(el, { konumdan, degisti, bitti }) {
+export function surukle(el, secenek) {
+  el._surukle = secenek;
+  if (el._surukleBagli) return;
+  el._surukleBagli = true;
   let aktif = false, son = null;
   const al = (o) => {
-    const v = konumdan(o.clientX, o.clientY);
-    if (v !== null && v !== son) { son = v; degisti(v); }
+    const v = el._surukle.konumdan(o.clientX, o.clientY);
+    if (v !== null && v !== son) { son = v; el._surukle.degisti(v); }
   };
   el.addEventListener("pointerdown", (o) => {
     aktif = true;
@@ -126,7 +145,7 @@ export function surukle(el, { konumdan, degisti, bitti }) {
     if (!aktif) return;
     aktif = false;
     yut();
-    if (son !== null) bitti(son);
+    if (son !== null) el._surukle.bitti(son);
   };
   el.addEventListener("pointerup", birak);
   el.addEventListener("pointercancel", birak);

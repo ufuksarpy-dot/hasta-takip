@@ -35,7 +35,7 @@ html, body {
   overscroll-behavior: none;
 }
 
-body { min-height: 100dvh; }
+body { min-height: 100dvh; overflow-x: hidden; }
 
 button {
   font: inherit;
@@ -96,11 +96,9 @@ button { -webkit-touch-callout: none; }
 .alt-bar > * { display: flex; width: 100%; max-width: 528px; margin: 0 auto; justify-content: center; align-items: center; gap: 6px; }
 .alt-bar > .saat-gecis { justify-content: space-between; }
 
-/* kaydırınca kayarak gir (alt bar sabit kalır) */
-#ekran.kay-sol > :not(.alt-bar) { animation: kaySol .22s ease-out; }
-#ekran.kay-sag > :not(.alt-bar) { animation: kaySag .22s ease-out; }
-@keyframes kaySol { from { transform: translateX(48px); opacity: .2; } }
-@keyframes kaySag { from { transform: translateX(-48px); opacity: .2; } }
+/* kaydırma: içerik parmakla birlikte kayar (alt bar sabit kalır) */
+#ekran > :not(.alt-bar) { transform: translateX(var(--kay, 0px)); }
+#ekran.kay-gecis > :not(.alt-bar) { transition: transform .17s cubic-bezier(.25, .8, .35, 1); }
 
 .satir { display: flex; align-items: center; gap: 8px; }
 .ara { justify-content: space-between; }
