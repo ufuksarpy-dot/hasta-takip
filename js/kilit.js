@@ -1,9 +1,7 @@
-// PIN ve şifreli yedek. Tarayıcının kendi şifreleme API'si (WebCrypto);
-// dışarıdan kütüphane yok.
-//
-// Not: PIN, uygulamayı açanı durdurur ama IndexedDB'deki veriyi
-// şifrelemez — asıl koruma telefonun kendi kilidi. Yedek dosyası ise
-// telefondan ÇIKTIĞI için gerçekten şifrelenir (AES-GCM, paroladan PBKDF2).
+// Şifreli yedek. Tarayıcının kendi şifreleme API'si (WebCrypto); dışarıdan
+// kütüphane yok. Uygulamanın içinde PIN yok (kullanıcı istemedi); telefondaki
+// veriyi telefonun kendi kilidi korur. Yedek dosyası ise telefondan ÇIKTIĞI
+// için şifrelenir (AES-GCM, paroladan PBKDF2).
 
 const kodla = new TextEncoder();
 const coz = new TextDecoder();
@@ -17,19 +15,6 @@ async function turet(parola, tuz, tekrar, kullanim) {
   const yol = { name: "PBKDF2", salt: tuz, iterations: tekrar, hash: "SHA-256" };
   if (!kullanim) return crypto.subtle.deriveBits(yol, ham, 256);
   return crypto.subtle.deriveKey(yol, ham, { name: "AES-GCM", length: 256 }, false, kullanim);
-}
-
-// ------------------------------------------------------------------ PIN
-
-const PIN_TEKRAR = 150000;
-
-export async function pinOzeti(pin) {
-  const tuz = crypto.getRandomValues(new Uint8Array(16));
-  return { tuz: b64(tuz), ozet: b64(await turet(pin, tuz, PIN_TEKRAR)) };
-}
-
-export async function pinDogru(pin, kayit) {
-  return b64(await turet(pin, b64den(kayit.tuz), PIN_TEKRAR)) === kayit.ozet;
 }
 
 // ---------------------------------------------------------------- Yedek

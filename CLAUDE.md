@@ -25,7 +25,7 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 | Kullanıcı | yalnızca Ufuk |
 | Barındırma | ücretsiz statik barındırma (GitHub Pages / Netlify). Yalnızca **boş uygulama kodu** yüklenir |
 | Veri | **yalnızca telefonda** (IndexedDB). Sunucu, bulut, hesap YOK. Offline çalışır (service worker) |
-| Gizlilik | önemli (KVKK, sağlık verisi). Açılışta **PIN**. **Şifreli yedek** dışa/içe aktarma (ana ekrandan silinirse veri gider) |
+| Gizlilik | önemli (KVKK, sağlık verisi). **PIN YOK** — ilk sürümde vardı, kullanıcı 2026-10-17'de "pin istemiyorum" dedi; koruma telefonun kendi kilidi. **Şifreli yedek** dışa/içe aktarma (ana ekrandan silinirse veri gider) |
 | Ana ekran | **ImzaKontrol düzeni**: saat saat kutu ızgarası, **2 sütun**, "← Önceki saat / Sonraki saat →", üstte **arama**. Açılınca **o anki saat** |
 | Kutu | ad soyad, seans (`7/15`), **AĞRI / ROM** etiketi |
 | Hasta bilgisi | ad soyad, saat, seans sayısı, kategori. **Telefon alanı YOK** |
@@ -77,7 +77,6 @@ dersi). Sınamalar sentetik dosyayla.
 
 - egzersiz listesi (kullanıcı verecek)
 - manuel terapi seçenekleri (MOB dışında neler, hangi bölgeler)
-- PIN mi, Face ID mi (PWA'da Face ID sınırlı)
 
 ---
 
@@ -93,7 +92,7 @@ klasör olduğu gibi yüklenir.
 | `js/model.js` | saf kurallar: açılış saati, ilk/son ölçüm, Excel birleştirme, varsayılan listeler |
 | `js/devam.js` | Excel okuyucu — ImzaKontrol `python/devam.py`'nin birebir karşılığı |
 | `js/db.js` | IndexedDB |
-| `js/kilit.js` | PIN (PBKDF2 özeti) ve şifreli yedek (AES-GCM) |
+| `js/kilit.js` | şifreli yedek (AES-GCM, paroladan PBKDF2) |
 | `js/rapor.js` | foto özet (canvas → PNG) |
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
 | `vendor/xlsx.full.min.js` | SheetJS 0.20.3 (cdn.sheetjs.com; npm'deki eski) |
@@ -110,7 +109,7 @@ sayfası yok — tarayıcı denemesi için kopyada `SELİN`→`UFUK` yapıldı
 
 **Yerel önizleme:** `.claude/launch.json` → `python -m http.server 8765`.
 `crypto.subtle` yalnızca güvenli bağlamda (https ya da localhost) çalışır:
-telefondan yerel ağ IP'siyle (http) açılırsa PIN çalışmaz.
+telefondan yerel ağ IP'siyle (http) açılırsa yedek çalışmaz.
 
 ## Durum (2026-10-14)
 
@@ -132,6 +131,8 @@ denendi: PIN ekranı, service worker kaydı ve önbellek, `crypto.subtle`, Sheet
 Güncelleme = commit + push; **`sw.js`'deki `SURUM`'u artırmadan telefon eski
 sürümü göstermeye devam eder.**
 
+**PIN kaldırıldı (2026-10-17)** — yukarıdaki PIN denemeleri artık geçersiz.
+
 **Bilinen davranış:** "Son söz Excel'in" — bugün "Seans yapıldı"ya basıp
 sonra bugünkü yoklamayı içermeyen dosya yüklenirse seans bir geri düşer.
-Kullanıcıya söylendi.
+Kullanıcıya söylendi (2026-10-17); "uygulamadaki büyükse koru" seçeneği önerildi, cevap bekliyor.

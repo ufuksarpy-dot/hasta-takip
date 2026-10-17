@@ -139,16 +139,6 @@ textarea { min-height: 96px; resize: vertical; }
 .kaydirma .cip { flex: none; }
 .cip .kayitli { color: var(--rom); margin-left: 4px; }
 
-/* PIN */
-.pin-ekran { min-height: 80dvh; display: flex; flex-direction: column; justify-content: center; gap: 24px; }
-.pin-noktalar { display: flex; justify-content: center; gap: 16px; }
-.pin-noktalar i { width: 14px; height: 14px; border-radius: 7px; border: 2px solid var(--soluk); }
-.pin-noktalar i.dolu { background: var(--rom); border-color: var(--rom); }
-.tus-takimi { display: grid; grid-template-columns: repeat(3, 72px); gap: 16px; justify-content: center; }
-.tus-takimi button { height: 72px; border-radius: 36px; font-size: 26px; }
-.titre { animation: titre .3s; }
-@keyframes titre { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-
 /* bildirim */
 #bildirim { position: fixed; left: 50%; bottom: calc(var(--alt) + 24px); transform: translateX(-50%) translateY(120px); background: var(--yazi); color: var(--zemin); padding: 10px 18px; border-radius: 20px; font-weight: 600; font-size: 14px; transition: transform .25s; z-index: 10; max-width: 90vw; text-align: center; }
 #bildirim.goster { transform: translateX(-50%) translateY(0); }

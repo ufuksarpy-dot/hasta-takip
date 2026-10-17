@@ -11,7 +11,7 @@ import {
   excelBirlestir,
 } from "./model.js";
 import { benimHastalarim, trKatla, SAYFA } from "./devam.js";
-import { pinOzeti, pinDogru, yedekSifrele, yedekCoz } from "./kilit.js";
+import { yedekSifrele, yedekCoz } from "./kilit.js";
 import { ozetCiz } from "./rapor.js";
 
 const $ekran = document.getElementById("ekran");
@@ -22,9 +22,6 @@ const d = {
   sayfa: { ad: "ana" },
   anaSaat: null,
   arama: null,
-  kilitli: false,
-  pin: "",
-  pinIlk: null,
   listeler: null,
 };
 
@@ -81,7 +78,6 @@ window.addEventListener("popstate", (o) => {
 });
 
 async function ciz() {
-  if (d.kilitli) { $ekran.innerHTML = kilitEkrani(); return; }
   const ekran = ekranlar[d.sayfa.ad] || ekranlar.ana;
   try {
     $ekran.innerHTML = await ekran(d.sayfa);
@@ -524,10 +520,8 @@ ekranlar.menu = async () => {
     <button class="liste-satir" data-e="excelSec"><span class="esnek">Excel'den içe aktar<br><span class="soluk">${sonExcel ? `Son: ${esc(sonExcel.ad)} · ${tarihYaz(sonExcel.tarih)}` : `Devam dosyası, ${SAYFA} sayfası`}</span></span>${ikon.ileri}</button>
     <button class="liste-satir" data-e="biten"><span class="esnek">Biten hastalar</span>${ikon.ileri}</button>
     <button class="liste-satir" data-e="listelerAc"><span class="esnek">Listeler<br><span class="soluk">Cihaz, egzersiz, hareket, bölge</span></span>${ikon.ileri}</button>
-    <div class="bolum">Güvenlik</div>
+    <div class="bolum">Veri</div>
     <button class="liste-satir" data-e="yedekAc"><span class="esnek">Yedek al / geri yükle<br><span class="soluk">Şifreli dosya</span></span>${ikon.ileri}</button>
-    <button class="liste-satir" data-e="pinDegistir"><span class="esnek">PIN değiştir</span>${ikon.ileri}</button>
-    <button class="liste-satir" data-e="kilitle"><span class="esnek">Şimdi kilitle</span>${ikon.ileri}</button>
   `;
 };
 
@@ -614,35 +608,6 @@ ekranlar.yedek = async () => `
   <button class="ikinci-btn" data-e="yedekSec">Yedek dosyası seç ve yükle</button>
   <div id="yHata" style="color:var(--tehlike);font-size:13px"></div>
 `;
-
-// ------------------------------------------------------------ kilit
-
-function kilitEkrani() {
-  const kur = d.pinKip === "kur";
-  const baslik = kur ? (d.pinIlk ? "PIN'i tekrar gir" : "Yeni PIN belirle") : "PIN";
-  return `
-    <div class="pin-ekran">
-      <div style="text-align:center">
-        <div class="baslik">${baslik}</div>
-        <div class="soluk" style="margin-top:6px">${kur ? "4 haneli" : "Hasta Takip"}</div>
-      </div>
-      <div class="pin-noktalar" id="pinNokta">${[0, 1, 2, 3].map((i) => `<i class="${d.pin.length > i ? "dolu" : ""}"></i>`).join("")}</div>
-      <div class="tus-takimi">
-        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button data-e="pinTus" data-v="${n}">${n}</button>`).join("")}
-        <span></span><button data-e="pinTus" data-v="0">0</button>
-        <button data-e="pinSil" style="background:transparent;font-size:16px">Sil</button>
-      </div>
-    </div>`;
-}
-
-async function kilitle() {
-  const pin = await db.ayarAl("pin", null);
-  d.kilitli = true;
-  d.pin = "";
-  d.pinIlk = null;
-  d.pinKip = pin ? "gir" : "kur";
-  ciz();
-}
 
 // ======================================================== EYLEMLER
 
@@ -881,14 +846,6 @@ const eylemler = {
   biten: () => git("biten"),
   listelerAc: () => { d.yeniListe = null; git("listeler"); },
   yedekAc: () => git("yedek"),
-  kilitle,
-  async pinDegistir() {
-    d.kilitli = true;
-    d.pin = "";
-    d.pinIlk = null;
-    d.pinKip = "kur";
-    ciz();
-  },
 
   // Excel
   excelSec: () => dosyaSec(".xls,.xlsx,application/vnd.ms-excel", excelOku),
@@ -951,10 +908,6 @@ const eylemler = {
       }
     });
   },
-
-  // PIN
-  pinTus: (v) => { if (d.pin.length < 4) { d.pin += v.v; pinIlerle(); } },
-  pinSil: () => { d.pin = d.pin.slice(0, -1); ciz(); },
 };
 
 function formOku() {
@@ -987,35 +940,6 @@ async function excelOku(dosya) {
   if (d.sayfa.ad === "excel") ciz(); else git("excel");
 }
 
-async function pinIlerle() {
-  ciz();
-  if (d.pin.length < 4) return;
-  const pin = d.pin;
-  if (d.pinKip === "kur") {
-    if (!d.pinIlk) { d.pinIlk = pin; d.pin = ""; setTimeout(ciz, 150); return; }
-    if (d.pinIlk !== pin) { d.pinIlk = null; d.pin = ""; titret(); bildir("PIN'ler aynı değil, baştan"); setTimeout(ciz, 400); return; }
-    await db.ayarYaz("pin", await pinOzeti(pin));
-    bildir("PIN kaydedildi");
-    kilidiAc();
-    return;
-  }
-  if (await pinDogru(pin, await db.ayarAl("pin"))) { kilidiAc(); return; }
-  d.pin = "";
-  titret();
-  setTimeout(ciz, 400);
-}
-
-function titret() {
-  document.getElementById("pinNokta")?.classList.add("titre");
-}
-
-function kilidiAc() {
-  d.kilitli = false;
-  d.pin = "";
-  d.pinIlk = null;
-  ciz();
-}
-
 // --------------------------------------------------------- olaylar
 
 $ekran.addEventListener("click", (o) => {
@@ -1044,12 +968,9 @@ $ekran.addEventListener("keydown", (o) => {
   }
 });
 
-// Arka plana gidip 2 dakikadan uzun kalınca kilitle.
-let gizlendi = 0;
+// Uygulamaya geri dönülünce ana ekrandaki saat değişmiş olabilir.
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) gizlendi = Date.now();
-  else if (gizlendi && Date.now() - gizlendi > 2 * 60 * 1000 && !d.kilitli) kilitle();
-  else if (!d.kilitli && d.sayfa.ad === "ana") ciz(); // saat değişmiş olabilir
+  if (!document.hidden && d.sayfa.ad === "ana") ciz();
 });
 
 // --------------------------------------------------------- başlangıç
@@ -1060,4 +981,4 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 
 history.replaceState(d.sayfa, "");
 db.kaliciIste();
-kilitle();
+ciz();
