@@ -125,7 +125,7 @@ klasör olduğu gibi yüklenir.
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
 | `vendor/morphdom.js` | morphdom 2.7.4 (ESM): `ciz()` ekranı baştan yazmaz, yalnızca değişeni günceller — kullanıcı "sayfa yenileniyormuş gibi" yanıp sönmeden şikâyet etti. Bu yüzden `surukle()` aynı öğeye tekrar tekrar bağlanabiliyor (dinleyici bir kez, seçenek her çizimde) |
 | `vendor/xlsx.full.min.js` | SheetJS 0.20.3 (cdn.sheetjs.com; npm'deki eski) |
-| `ikon/ikon_uret.py` | ana ekran ikonu (Pillow) |
+| `ikon/ikon_uret.py` | ana ekran ikonu (Pillow): gonyometre, dolu yay **kırmızı → turuncu → yeşil** (kullanıcı: "pozitif ilerleme"). iOS ikonu ana ekrana eklerken bir kez alır; değişince `?v=N` artır. **Telefondaki ikonu yenilemek = sil + yeniden ekle = VERİ GİDER** → önce yedek |
 
 **SheetJS ile renk:** `XLSX.read(veri, { cellStyles: true, sheetStubs: true })`.
 Dolgu `hucre.s.fgColor.rgb` ("000080"). Dolgusuz boş hücrede `s` YOK.
