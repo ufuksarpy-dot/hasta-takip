@@ -1293,7 +1293,12 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
       location.reload();
     });
   }
-  navigator.serviceWorker.register("sw.js").then((k) => k.update()).catch(() => {});
+  navigator.serviceWorker.register("sw.js").then((k) => {
+    k.update();
+    // iPhone uygulamayı çoğu zaman kapatmaz, arka planda tutar: öne
+    // gelince de yeni sürüm var mı bak
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) k.update(); });
+  }).catch(() => {});
 }
 
 history.replaceState(d.sayfa, "");
