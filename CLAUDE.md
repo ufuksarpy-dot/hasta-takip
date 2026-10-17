@@ -94,6 +94,7 @@ klasör olduğu gibi yüklenir.
 | `js/db.js` | IndexedDB |
 | `js/kilit.js` | şifreli yedek (AES-GCM, paroladan PBKDF2) |
 | `js/rapor.js` | foto özet (canvas → PNG) |
+| `js/deneme.js` | menüden "Deneme hastaları ekle/sil": uydurma hastalar (`kaynak: "deneme"`), ölçüm geçmişi, program, not. Sil yalnızca bunlara dokunur |
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
 | `vendor/xlsx.full.min.js` | SheetJS 0.20.3 (cdn.sheetjs.com; npm'deki eski) |
 | `ikon/ikon_uret.py` | ana ekran ikonu (Pillow) |

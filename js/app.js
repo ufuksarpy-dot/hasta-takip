@@ -13,6 +13,7 @@ import {
 import { benimHastalarim, trKatla, SAYFA } from "./devam.js";
 import { yedekSifrele, yedekCoz } from "./kilit.js";
 import { ozetCiz } from "./rapor.js";
+import { denemeEkle, denemeSayisi, denemeSil } from "./deneme.js";
 
 const $ekran = document.getElementById("ekran");
 const $dosya = document.getElementById("dosya");
@@ -515,6 +516,7 @@ ekranlar.ozet = async ({ id }) => {
 
 ekranlar.menu = async () => {
   const sonExcel = await db.ayarAl("sonExcel", null);
+  const deneme = await denemeSayisi();
   return `
     ${ustBar("Menü")}
     <button class="liste-satir" data-e="excelSec"><span class="esnek">Excel'den içe aktar<br><span class="soluk">${sonExcel ? `Son: ${esc(sonExcel.ad)} · ${tarihYaz(sonExcel.tarih)}` : `Devam dosyası, ${SAYFA} sayfası`}</span></span>${ikon.ileri}</button>
@@ -522,6 +524,9 @@ ekranlar.menu = async () => {
     <button class="liste-satir" data-e="listelerAc"><span class="esnek">Listeler<br><span class="soluk">Cihaz, egzersiz, hareket, bölge</span></span>${ikon.ileri}</button>
     <div class="bolum">Veri</div>
     <button class="liste-satir" data-e="yedekAc"><span class="esnek">Yedek al / geri yükle<br><span class="soluk">Şifreli dosya</span></span>${ikon.ileri}</button>
+    <div class="bolum">Deneme</div>
+    <button class="liste-satir" data-e="denemeEkle"><span class="esnek">Deneme hastaları ekle<br><span class="soluk">Uydurma adlar, ölçümler ve programlarla</span></span>${ikon.ileri}</button>
+    ${deneme ? `<button class="liste-satir" data-e="denemeSil"><span class="esnek" style="color:var(--tehlike)">Deneme hastalarını sil<br><span class="soluk">${deneme} deneme hastası · gerçek hastalara dokunmaz</span></span></button>` : ""}
   `;
 };
 
@@ -846,6 +851,18 @@ const eylemler = {
   biten: () => git("biten"),
   listelerAc: () => { d.yeniListe = null; git("listeler"); },
   yedekAc: () => git("yedek"),
+  async denemeEkle() {
+    const n = await denemeEkle();
+    bildir(`${n} deneme hastası eklendi`);
+    d.anaSaat = null;
+    eylemler.anaya();
+  },
+  async denemeSil() {
+    if (!confirm("Bütün deneme hastaları ve kayıtları silinsin mi? Gerçek hastalar etkilenmez.")) return;
+    const n = await denemeSil();
+    bildir(`${n} deneme hastası silindi`);
+    ciz();
+  },
 
   // Excel
   excelSec: () => dosyaSec(".xls,.xlsx,application/vnd.ms-excel", excelOku),

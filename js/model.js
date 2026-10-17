@@ -63,7 +63,13 @@ export function vasOzet(olcumler) {
 export function romOzet(olcumler, hasta) {
   const etkilenen = hasta.taraf || "sag";
   const saglikli = etkilenen === "sag" ? "sol" : "sag";
-  const hareketler = [...new Set(olcumler.filter((o) => o.tur === "rom").map((o) => o.hareket))];
+  // Listedeki sırayla (fleksiyon, abdüksiyon…); listede olmayanlar sona.
+  const sira = (m) => {
+    const i = VARSAYILAN_LISTELER.hareketler.indexOf(m);
+    return i < 0 ? 99 : i;
+  };
+  const hareketler = [...new Set(olcumler.filter((o) => o.tur === "rom").map((o) => o.hareket))]
+    .sort((a, b) => sira(a) - sira(b));
   return hareketler.map((hareket) => ({
     hareket,
     etkilenen: ilkSon(olcumler, (o) => o.tur === "rom" && o.hareket === hareket && o.taraf === etkilenen),

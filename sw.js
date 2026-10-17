@@ -1,7 +1,7 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekte, önce önbellekten.
 // Dosyalardan biri değişince SURUM'u artır — telefon yeni sürümü ancak
 // böyle alır.
-const SURUM = "hasta-takip-2";
+const SURUM = "hasta-takip-3";
 const DOSYALAR = [
   "./",
   "index.html",
@@ -9,6 +9,7 @@ const DOSYALAR = [
   "css/app.css",
   "js/app.js",
   "js/db.js",
+  "js/deneme.js",
   "js/devam.js",
   "js/kilit.js",
   "js/model.js",
@@ -20,7 +21,9 @@ const DOSYALAR = [
 ];
 
 self.addEventListener("install", (o) => {
-  o.waitUntil(caches.open(SURUM).then((c) => c.addAll(DOSYALAR)).then(() => self.skipWaiting()));
+  o.waitUntil(caches.open(SURUM)
+    // cache: "reload" — tarayıcının HTTP önbelleğindeki eski dosyayı alma
+    .then((c) => c.addAll(DOSYALAR.map((f) => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (o) => {
