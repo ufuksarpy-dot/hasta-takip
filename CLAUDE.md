@@ -61,6 +61,18 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 - iPhone web uygulamasında **titreşim yok** — geri bildirim animasyonla
 - sırada: **program şablonları** (kararlarda vardı, yapılmadı)
 
+## Keyif (2026-10-17, kullanıcı seçti: 1, 2, 3'ten yalnızca gidişat oku, 4'ten yalnızca selamlama)
+
+- hasta ekranında **gelişim grafiği**: VAS ya da ROM hareketi (çiplerle seçilir), seanslara göre; ROM'da sağlıklı taraf kesikli çizgi
+- **Hastaya göster** (`ekranlar.goster`): büyük yazı, "<ad>, harika gidiyorsun!", seans halkası, ağrı ilk→son ve % azalma, ROM yarım daireleri (+°)
+- **Aylık özet** (menü; ayın ilk 7 günü ana ekranda geçen ayın kartı, kapatılınca o ay çıkmaz): biten tedavi, ağrıda ort. % azalma, ROM ort. kazanım, işaretlenen seans, en sık cihazlar. Seans sayısı yalnızca uygulamada "Seans yapıldı" denenleri sayar
+- **seans animasyonu**: halka dolarak ilerler, ✓ zıplar (`d.pop`)
+- **tedavi bitişi**: son seansta konfeti + "Tedavi tamamlandı" kartı (Foto özet / Tedaviyi bitir)
+- **gidişat oku** kutuda: son iki VAS — ↓ yeşil, → gri, ↑ turuncu
+- **selamlama**: saate göre "Günaydın / İyi günler / İyi akşamlar / İyi geceler Ufuk" (ayar `kullaniciAdi`, varsayılan Ufuk)
+- İstenmeyenler: baş harf rozeti, tema rengi, tık sesi, gün sonu kartı
+- Türkçe ek tuzağı: sayıya ek getirme ("12'i" yanlış) — ek gerektirmeyen kalıp kullan ("Seans 12 / 30")
+
 ## Excel içe aktarma
 
 Yapı ve kurallar: **ImzaKontrol CLAUDE.md** ("Devam dosyasının yapısı",
@@ -108,6 +120,7 @@ klasör olduğu gibi yüklenir.
 | `js/kilit.js` | şifreli yedek (AES-GCM, paroladan PBKDF2) |
 | `js/rapor.js` | foto özet (canvas → PNG) |
 | `js/dokunma.js` | kaydırma (saat/hasta), kenardan geri, basılı tutma, basılı tutunca tekrar, sürükleme. Tıklama yutma **süreli** (400 ms): ekran araya yeniden çizilirse bir sonraki dokunuş yutulmasın |
+| `js/gorsel.js` | gelişim grafiği (SVG çizgi), "hastaya göster" yarım daireleri, konfeti |
 | `js/deneme.js` | menüden "Deneme hastaları ekle/sil": uydurma hastalar (`kaynak: "deneme"`), ölçüm geçmişi, program, not. Sil yalnızca bunlara dokunur |
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
 | `vendor/morphdom.js` | morphdom 2.7.4 (ESM): `ciz()` ekranı baştan yazmaz, yalnızca değişeni günceller — kullanıcı "sayfa yenileniyormuş gibi" yanıp sönmeden şikâyet etti. Bu yüzden `surukle()` aynı öğeye tekrar tekrar bağlanabiliyor (dinleyici bir kez, seçenek her çizimde) |

@@ -1,7 +1,7 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekte, önce önbellekten.
 // Dosyalardan biri değişince SURUM'u artır — telefon yeni sürümü ancak
 // böyle alır.
-const SURUM = "hasta-takip-7";
+const SURUM = "hasta-takip-8";
 const DOSYALAR = [
   "./",
   "index.html",
@@ -12,6 +12,7 @@ const DOSYALAR = [
   "js/deneme.js",
   "js/devam.js",
   "js/dokunma.js",
+  "js/gorsel.js",
   "js/kilit.js",
   "js/model.js",
   "js/rapor.js",

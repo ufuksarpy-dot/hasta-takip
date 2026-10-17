@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   acilisSaati, excelBirlestir, romOzet, vasOzet, programMetni, sonOlcumZamani,
+  gidisat, selamlama, ayKaydir, ayAdi, ayOzeti,
 } from "../js/model.js";
 
 const saat = (s) => new Date(`2031-06-10T${s}:00`);
@@ -72,4 +73,45 @@ test("program metni", () => {
 test("son ölçüm hatırlatması", () => {
   assert.equal(sonOlcumZamani({ seans: 13, toplam: 15 }), false);
   assert.equal(sonOlcumZamani({ seans: 14, toplam: 15 }), true);
+});
+
+test("gidişat: son iki VAS", () => {
+  const v = (deger, zaman) => ({ tur: "vas", deger, tarih: "2031-06-01", zaman });
+  assert.equal(gidisat([v(8, 1)]), null);
+  assert.equal(gidisat([v(8, 1), v(5, 2)]), "iyi");
+  assert.equal(gidisat([v(5, 2), v(8, 1), v(5, 3)]), "ayni");
+  assert.equal(gidisat([v(3, 1), v(6, 2)]), "kotu");
+});
+
+test("selamlama", () => {
+  assert.equal(selamlama(new Date("2031-06-10T08:00:00")), "Günaydın");
+  assert.equal(selamlama(new Date("2031-06-10T13:00:00")), "İyi günler");
+  assert.equal(selamlama(new Date("2031-06-10T19:00:00")), "İyi akşamlar");
+  assert.equal(selamlama(new Date("2031-06-10T23:30:00")), "İyi geceler");
+});
+
+test("ay kaydırma", () => {
+  assert.equal(ayKaydir("2031-01", -1), "2030-12");
+  assert.equal(ayKaydir("2031-12", 1), "2032-01");
+  assert.equal(ayAdi("2031-06"), "Haziran 2031");
+});
+
+test("ay özeti", () => {
+  const h = (id, ek) => ({ id, kategori: "agri", durum: "aktif", seansGunleri: [], ...ek });
+  const hastalar = [
+    h("a", { durum: "bitti", bitis: "2031-06-20", seansGunleri: ["2031-06-01", "2031-06-02"] }),
+    h("b", { durum: "bitti", bitis: "2031-06-25", kategori: "rom", taraf: "sag" }),
+    h("c", { durum: "bitti", bitis: "2031-05-30" }),
+    h("d", { seansGunleri: ["2031-06-03", "2031-05-03"] }),
+  ];
+  const vas = (deger, zaman) => ({ tur: "vas", deger, tarih: "2031-06-01", zaman });
+  const rom = (deger, zaman) => ({ tur: "rom", hareket: "Fleksiyon", taraf: "sag", deger, tarih: "2031-06-01", zaman });
+  const olcumler = { a: [vas(8, 1), vas(2, 2)], b: [vas(10, 1), vas(5, 2), rom(90, 3), rom(150, 4)], c: [vas(9, 1), vas(0, 2)] };
+  const programlar = { a: [{ tarih: "2031-06-01", zaman: 1, cihazlar: ["TENS", "US"] }], d: [{ tarih: "2031-06-01", zaman: 1, cihazlar: ["TENS"] }] };
+  const o = ayOzeti(hastalar, olcumler, programlar, "2031-06");
+  assert.equal(o.biten, 2);
+  assert.equal(o.agriAzalma, 63); // (75% + 50%) / 2 = 62.5 → 63
+  assert.deepEqual(o.rom, [{ hareket: "Fleksiyon", kazanim: 60, hasta: 1 }]);
+  assert.equal(o.seans, 3);
+  assert.deepEqual(o.cihazlar, [{ ad: "TENS", sayi: 2 }, { ad: "US", sayi: 1 }]);
 });

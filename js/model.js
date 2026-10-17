@@ -96,6 +96,82 @@ export function egzersizMetni(e) {
   return s;
 }
 
+// ---------------------------------------------------------- gelişim
+
+// Grafik için sıralı ölçüm dizisi.
+export function seri(olcumler, suzgec) {
+  return sirala(olcumler.filter(suzgec)).map((o) => ({ seans: o.seans, deger: o.deger, tarih: o.tarih }));
+}
+
+// Ağrının gidişatı: son iki VAS ölçümü. Düşüyorsa iyi.
+export function gidisat(olcumler) {
+  const l = seri(olcumler, (o) => o.tur === "vas");
+  if (l.length < 2) return null;
+  const fark = l[l.length - 1].deger - l[l.length - 2].deger;
+  return fark < 0 ? "iyi" : fark > 0 ? "kotu" : "ayni";
+}
+
+export function selamlama(t = new Date()) {
+  const s = t.getHours();
+  return s >= 5 && s < 12 ? "Günaydın" : s >= 12 && s < 17 ? "İyi günler"
+    : s >= 17 && s < 22 ? "İyi akşamlar" : "İyi geceler";
+}
+
+export const AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
+  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+export const ayAdi = (ay) => `${AYLAR[Number(ay.slice(5, 7)) - 1]} ${ay.slice(0, 4)}`;
+
+export function ayKaydir(ay, adim) {
+  const t = new Date(Number(ay.slice(0, 4)), Number(ay.slice(5, 7)) - 1 + adim, 1);
+  return bugun(t).slice(0, 7);
+}
+
+/**
+ * Bir ayın özeti ("2026-10"). olcumler/programlar: hastaId → liste.
+ * - biten: o ay tedavisi biten hastalar
+ * - agriAzalma: bitenlerde VAS ilk → son ortalama yüzde azalma (en az 2 ölçüm)
+ * - rom: bitenlerde etkilenen tarafın hareket başına ortalama kazanımı (°)
+ * - seans: o ay uygulamada "Seans yapıldı" denen seans sayısı
+ * - cihazlar: o ay seansı olan hastaların programlarında en sık cihazlar
+ */
+export function ayOzeti(hastalar, olcumler, programlar, ay) {
+  const biten = hastalar.filter((h) => h.durum === "bitti" && (h.bitis || "").startsWith(ay));
+
+  const azalmalar = [];
+  const kazanim = {};
+  for (const h of biten) {
+    const o = olcumler[h.id] || [];
+    const v = vasOzet(o);
+    if (v && v.sayi > 1 && v.ilk.deger > 0) azalmalar.push((v.ilk.deger - v.son.deger) / v.ilk.deger);
+    if (h.kategori !== "rom") continue;
+    for (const r of romOzet(o, h)) {
+      const e = r.etkilenen;
+      if (!e || e.sayi < 2) continue;
+      (kazanim[r.hareket] ||= []).push(e.son.deger - e.ilk.deger);
+    }
+  }
+  const ort = (l) => l.reduce((a, b) => a + b, 0) / l.length;
+
+  let seans = 0;
+  const cihazSay = {};
+  for (const h of hastalar) {
+    const n = (h.seansGunleri || []).filter((g) => g.startsWith(ay)).length;
+    seans += n;
+    if (!n) continue;
+    for (const c of guncelProgram(programlar[h.id] || [])?.cihazlar || []) cihazSay[c] = (cihazSay[c] || 0) + 1;
+  }
+
+  return {
+    biten: biten.length,
+    agriAzalma: azalmalar.length ? Math.round(ort(azalmalar) * 100) : null,
+    agriHasta: azalmalar.length,
+    rom: Object.entries(kazanim).map(([hareket, l]) => ({ hareket, kazanim: Math.round(ort(l)), hasta: l.length })),
+    seans,
+    cihazlar: Object.entries(cihazSay).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([ad, sayi]) => ({ ad, sayi })),
+  };
+}
+
 // ---------------------------------------------------------------- Excel
 
 export const eslesmeAnahtari = (ad, soyad, saat) =>
