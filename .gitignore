@@ -1,0 +1,7 @@
+.venv/
+node_modules/
+sinamalar/gecici-*
+__pycache__/
+*.xls
+*.xlsx
+*.htyedek
