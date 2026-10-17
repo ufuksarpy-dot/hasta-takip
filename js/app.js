@@ -33,6 +33,7 @@ const d = {
   ad: "Ufuk",           // selamlama (ayar: "kullaniciAdi")
   grafik: "vas",        // hasta ekranındaki gelişim grafiğinde seçili ölçüm
   pop: null,            // az önce seansı işaretlenen hasta: ✓ zıplasın
+  ipucu: false,         // kaydırma ipucu yalnızca ilk birkaç açılışta
 };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
@@ -131,13 +132,6 @@ const kategoriRozeti = (h) => h.kategori === "rom"
   ? `<span class="rozet r-rom">ROM${h.taraf ? " · " + (h.taraf === "sag" ? "SAĞ" : "SOL") : ""}</span>`
   : h.kategori === "agri" ? '<span class="rozet r-agri">AĞRI</span>' : '<span class="rozet r-gri">?</span>';
 
-const renkOf = (h) => (h.kategori === "rom" ? "var(--rom)" : "var(--agri)");
-
-function cubuk(h) {
-  const oran = h.toplam ? Math.min(100, Math.round((h.seans / h.toplam) * 100)) : 0;
-  return `<div class="cubuk"><i style="width:${oran}%;background:${renkOf(h)}"></i></div>`;
-}
-
 const bugunYapildi = (h) => (h.seansGunleri || []).includes(bugun());
 
 // Kutunun sağ üstü: bugün seans yapıldıysa ✓, VAS girildiyse değeri.
@@ -145,31 +139,35 @@ function bugunRozeti(h, vas) {
   return `<span class="bugun">${vas != null ? `<span class="vas-mini">VAS ${vas}</span>` : ""}${bugunYapildi(h) ? `<span class="tamam ${d.pop === h.id ? "pop" : ""}">${ikon.tik}</span>` : ""}</span>`;
 }
 
+// Kategori renkli etiket yerine sade yazıyla; renk kutunun sol şeridinde.
+function kategoriYazisi(h) {
+  const kat = h.kategori === "rom" ? `ROM${h.taraf ? " · " + (h.taraf === "sag" ? "sağ" : "sol") : ""}` : "Ağrı";
+  return `<div class="kat-yazi">${kat}${sonOlcumZamani(h) ? ' · <span class="uyari-yazi">son ölçüm</span>' : ""}</div>`;
+}
+
+const katSinifi = (h) => (h.kategori === "rom" ? "kat-rom" : "kat-agri");
+
 function hastaKutusu(h, vas, gidis) {
-  const uyari = sonOlcumZamani(h);
-  return `<button class="hasta-kutu kart ${uyari ? "uyari" : ""} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
-    <div class="satir ara" style="gap:4px;align-items:flex-start">
-      <div class="satir" style="gap:4px;flex-wrap:wrap">${kategoriRozeti(h)}${uyari ? '<span class="rozet r-uyari">SON ÖLÇÜM</span>' : ""}</div>
+  return `<button class="hasta-kutu kart ${katSinifi(h)} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
+    <div class="satir ara" style="gap:6px;align-items:flex-start">
+      <div class="ad">${esc(tamAd(h))}</div>
       ${bugunRozeti(h, vas)}
     </div>
-    <div class="ad">${esc(tamAd(h))}</div>
+    ${kategoriYazisi(h)}
     <div class="sayi">${h.seans}<small> / ${h.toplam}</small> ${gidisatOku(gidis)}</div>
-    ${cubuk(h)}
   </button>`;
 }
 
 // Saat özeti görünümü: program ve son not da görünür.
 function ozetKarti(h, vas, program, not, gidis) {
-  const uyari = sonOlcumZamani(h);
-  return `<button class="ozet-kart kart ${uyari ? "uyari" : ""} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
+  return `<button class="ozet-kart kart ${katSinifi(h)} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
     <div class="satir ara">
       <span class="ad">${esc(tamAd(h))}</span>
-      <span class="satir" style="gap:8px">${gidisatOku(gidis)}<span class="soluk" style="font-size:13px">${h.seans}/${h.toplam}</span>${bugunRozeti(h, vas)}</span>
+      <span class="satir" style="gap:8px"><span class="soluk" style="font-size:13px">${h.seans}/${h.toplam}</span>${gidisatOku(gidis)}${bugunRozeti(h, vas)}</span>
     </div>
-    <div class="satir" style="gap:4px;flex-wrap:wrap">${kategoriRozeti(h)}${uyari ? '<span class="rozet r-uyari">SON ÖLÇÜM</span>' : ""}</div>
+    ${kategoriYazisi(h)}
     <div class="ozet-program">${program ? esc(programMetni(program)) : '<span class="soluk">Program yok</span>'}</div>
     ${not ? `<div class="ozet-not">${ikon.not} ${esc(not.metin)}</div>` : ""}
-    ${cubuk(h)}
   </button>`;
 }
 
@@ -220,22 +218,18 @@ const ekranlar = {};
 
 ekranlar.ana = async () => {
   const hastalar = (await db.hepsi("hastalar")).filter((h) => h.durum === "aktif");
-  const tarih = new Date().toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  const tarih = new Date().toLocaleDateString("tr-TR", { weekday: "short", day: "numeric", month: "long" });
 
+  // "Hasta ekle" ve "Görünüm" menüde: üstte yalnızca arama ve menü
   const ust = (ortaYazi) => `
-    <div class="satir ara" style="align-items:flex-start">
-      <div>
-        <div class="selam">${selamlama()} ${esc(d.ad)}</div>
-        <div class="soluk" style="font-size:13px">${esc(tarih)}</div>
-        ${ortaYazi}
-      </div>
+    <div class="satir ara">
+      <div class="ust-satir"><span class="selam">${selamlama()} ${esc(d.ad)}</span> · ${esc(tarih)}</div>
       <div class="satir" style="gap:6px">
-        <button class="ikon-btn" data-e="gorunum" aria-label="Görünümü değiştir">${d.gorunum === "kutu" ? ikon.liste : ikon.kutu}</button>
         <button class="ikon-btn" data-e="arama" aria-label="Ara">${ikon.ara}</button>
         <button class="ikon-btn" data-e="menu" aria-label="Menü">${ikon.menu}</button>
-        <button class="ikon-btn secili" data-e="ekle" aria-label="Hasta ekle">${ikon.arti}</button>
       </div>
-    </div>`;
+    </div>
+    ${ortaYazi}`;
 
   if (d.arama !== null) {
     const q = trKatla(d.arama);
@@ -269,8 +263,6 @@ ekranlar.ana = async () => {
   const simdi = acilisSaati(saatler);
   const i = saatler.indexOf(d.anaSaat);
   const buSaat = hastalar.filter((h) => h.saat === d.anaSaat).sort(saatSirasi);
-  const rom = buSaat.filter((h) => h.kategori === "rom").length;
-  const yapildi = buSaat.filter(bugunYapildi).length;
   const onceki = saatler[i - 1], sonraki = saatler[i + 1];
 
   // bugünün VAS'ı; özet görünümünde güncel program ve son not
@@ -292,11 +284,10 @@ ekranlar.ana = async () => {
   }
 
   const saatBasi = `
-    <div class="satir" style="gap:10px;align-items:baseline">
+    <div class="satir" style="gap:12px;align-items:baseline">
       <button class="saat-buyuk saat-btn" data-e="saatSecici">${d.anaSaat}</button>
-      ${d.anaSaat !== simdi ? '<button class="cip simdi-btn" data-e="simdi">Şimdi</button>' : ""}
-    </div>
-    <div class="soluk" style="margin-top:4px">${buSaat.length} hasta · ${rom} ROM · ${buSaat.length - rom} ağrı${yapildi ? ` · <span style="color:var(--rom)">${yapildi} yapıldı</span>` : ""}</div>`;
+      ${d.anaSaat !== simdi ? '<button class="simdi-btn" data-e="simdi">Şimdi →</button>' : ""}
+    </div>`;
 
   const secici = d.saatSecici ? `
     <div class="kart izgara" style="grid-template-columns:repeat(4,1fr);gap:6px">
@@ -313,7 +304,7 @@ ekranlar.ana = async () => {
     ${d.gorunum === "ozet"
       ? `<div class="izgara">${buSaat.map((h) => ozetKarti(h, vasBugun[h.id], programlar[h.id], notlar[h.id], gidis(h))).join("")}</div>`
       : `<div class="izgara iki">${buSaat.map((h) => hastaKutusu(h, vasBugun[h.id], gidis(h))).join("")}</div>`}
-    <div class="soluk ipucu">Kaydır: saat değiştir · Basılı tut: seans yapıldı</div>
+    ${d.ipucu ? '<div class="soluk ipucu">Kaydır: saat değiştir · Basılı tut: seans yapıldı</div>' : ""}
     <div class="alt-bar">
       <div class="saat-gecis">
         <button data-e="saat" data-s="${onceki || ""}" ${onceki ? "" : 'style="visibility:hidden"'}>‹ ${onceki || ""}</button>
@@ -872,6 +863,8 @@ ekranlar.menu = async () => {
     .find((k) => k.startsWith("hasta-takip-"))?.replace("hasta-takip-", "");
   return `
     ${ustBar("Menü")}
+    <button class="liste-satir" data-e="ekle"><span class="esnek">Hasta ekle</span>${ikon.arti}</button>
+    <button class="liste-satir" data-e="gorunum"><span class="esnek">Ana ekran görünümü<br><span class="soluk">${d.gorunum === "kutu" ? "Kutular · dokun: saat özeti (program ve not)" : "Saat özeti · dokun: kutular"}</span></span>${d.gorunum === "kutu" ? ikon.kutu : ikon.liste}</button>
     <button class="liste-satir" data-e="excelSec"><span class="esnek">Excel'den içe aktar<br><span class="soluk">${sonExcel ? `Son: ${esc(sonExcel.ad)} · ${tarihYaz(sonExcel.tarih)}` : `Devam dosyası, ${SAYFA} sayfası`}</span></span>${ikon.ileri}</button>
     <button class="liste-satir" data-e="biten"><span class="esnek">Biten hastalar</span>${ikon.ileri}</button>
     <button class="liste-satir" data-e="aylikAc"><span class="esnek">Aylık özet<br><span class="soluk">Tamamlanan tedaviler, ağrı ve ROM gelişimi</span></span>${ikon.ileri}</button>
@@ -1494,8 +1487,12 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 
 history.replaceState(d.sayfa, "");
 db.kaliciIste();
-Promise.all([db.ayarAl("gorunum", "kutu"), db.ayarAl("kullaniciAdi", "Ufuk")]).then(([g, ad]) => {
-  d.gorunum = g;
-  d.ad = ad;
-  ciz();
-});
+const IPUCU_ACILIS = 5;
+Promise.all([db.ayarAl("gorunum", "kutu"), db.ayarAl("kullaniciAdi", "Ufuk"), db.ayarAl("ipucuSayisi", 0)])
+  .then(([g, ad, ipucu]) => {
+    d.gorunum = g;
+    d.ad = ad;
+    d.ipucu = ipucu < IPUCU_ACILIS;
+    if (d.ipucu) db.ayarYaz("ipucuSayisi", ipucu + 1);
+    ciz();
+  });

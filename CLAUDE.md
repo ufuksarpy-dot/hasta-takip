@@ -27,7 +27,8 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 | Veri | **yalnızca telefonda** (IndexedDB). Sunucu, bulut, hesap YOK. Offline çalışır (service worker) |
 | Gizlilik | önemli (KVKK, sağlık verisi). **PIN YOK** — ilk sürümde vardı, kullanıcı 2026-10-17'de "pin istemiyorum" dedi; koruma telefonun kendi kilidi. **Şifreli yedek** dışa/içe aktarma (ana ekrandan silinirse veri gider) |
 | Ana ekran | **ImzaKontrol düzeni**: saat saat kutu ızgarası, **2 sütun**, "← Önceki saat / Sonraki saat →", üstte **arama**. Açılınca **o anki saat** |
-| Kutu | ad soyad, seans (`7/15`), **AĞRI / ROM** etiketi |
+| Kutu | ad soyad, sade kategori yazısı ("Ağrı", "ROM · sağ", turuncu "son ölçüm"), seans (`7/15`) + gidişat oku, bugün ✓/VAS. Kategori rengi **sol şeritte**. Renkli etiketler ve ilerleme çubuğu 2026-10-17'de "çok kalabalık" denince kaldırıldı |
+| Ana ekran üstü | tek satır selam · tarih; yalnızca **Ara** ve **Menü**. "Hasta ekle" ve görünüm değiştirme **menüde**. Özet satırı ("4 hasta · 2 ROM") yok. Kaydırma ipucu yalnızca ilk 5 açılışta |
 | Hasta bilgisi | ad soyad, saat, seans sayısı, kategori. **Telefon alanı YOK** |
 | Saat | hasta her gün **aynı saatte** gelir |
 | Hasta ekleme | (1) **elle**; (2) **devam dosyası (.xls)** içe aktarma |

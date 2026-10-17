@@ -131,7 +131,7 @@ button { -webkit-touch-callout: none; }
 /* ana ekran */
 .saat-buyuk { font-size: 44px; font-weight: 600; line-height: 1; letter-spacing: -1px; }
 .saat-btn { background: transparent; padding: 0; border-radius: 8px; }
-.simdi-btn { background: var(--rom-zemin); color: var(--rom-acik); padding: 6px 12px; font-weight: 600; }
+.simdi-btn { background: transparent; color: var(--rom); padding: 4px 0; font-size: 14px; font-weight: 600; }
 .su-an { box-shadow: inset 0 0 0 1.5px var(--rom); }
 .ipucu { text-align: center; margin-top: 4px; }
 .hasta-kutu, .ozet-kart { transition: transform .15s; }
@@ -141,13 +141,11 @@ button { -webkit-touch-callout: none; }
 .tamam { width: 22px; height: 22px; border-radius: 11px; background: var(--rom); color: var(--rom-koyu); display: grid; place-items: center; }
 .tamam svg { width: 13px; height: 13px; }
 .vas-mini { font-size: 11px; font-weight: 600; color: var(--soluk2); background: var(--kart2); border-radius: 10px; padding: 2px 7px; }
-.ozet-kart { text-align: left; display: flex; flex-direction: column; gap: 6px; border: 1px solid transparent; }
-.ozet-kart.uyari { border-color: var(--uyari); }
+.ozet-kart { text-align: left; display: flex; flex-direction: column; gap: 6px; padding-left: 17px; }
 .ozet-kart .ad { font-weight: 600; font-size: 16px; }
 .ozet-program { font-size: 13px; color: #D3D1C7; line-height: 1.45; }
 .ozet-not { font-size: 12px; color: var(--soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hasta-kutu { text-align: left; padding: 12px; border-radius: 18px; display: flex; flex-direction: column; gap: 4px; min-height: 112px; border: 1px solid transparent; }
-.hasta-kutu.uyari { border-color: var(--uyari); }
+.hasta-kutu { text-align: left; padding: 12px 12px 12px 15px; border-radius: 18px; display: flex; flex-direction: column; gap: 2px; min-height: 104px; }
 .hasta-kutu .ad { font-weight: 600; font-size: 15px; line-height: 1.2; }
 .hasta-kutu .sayi { font-size: 24px; font-weight: 600; margin-top: auto; }
 .hasta-kutu .sayi small { color: var(--soluk); font-size: 13px; font-weight: 400; }
@@ -201,11 +199,18 @@ button { -webkit-touch-callout: none; }
 .not { white-space: pre-wrap; line-height: 1.5; }
 
 /* ---------------------------------------------- keyif: selam, ok, kutlama */
-.selam { font-size: 15px; font-weight: 600; color: var(--rom-acik); margin-bottom: 2px; }
-.ok { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 10px; font-size: 13px; font-weight: 700; vertical-align: 3px; }
-.ok-iyi { background: #27500A; color: #C0DD97; }
-.ok-ayni { background: var(--cizgi); color: var(--soluk2); }
-.ok-kotu { background: var(--agri-zemin); color: var(--agri-acik); }
+/* sade ana ekran: kategori rengi kutunun sol şeridinde, etiket yok */
+.ust-satir { font-size: 13px; color: var(--soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.selam { font-weight: 600; color: var(--rom-acik); }
+.kat-agri { box-shadow: inset 3px 0 0 var(--agri); }
+.kat-rom { box-shadow: inset 3px 0 0 var(--rom); }
+.kat-yazi { font-size: 12px; color: var(--soluk); }
+.uyari-yazi { color: #F0997B; font-weight: 600; }
+.hasta-kutu .sayi { margin-top: auto; padding-top: 8px; }
+.ok { font-size: 16px; font-weight: 700; margin-left: 2px; }
+.ok-iyi { color: #97C459; }
+.ok-ayni { color: var(--soluk); }
+.ok-kotu { color: var(--agri); }
 
 /* seans halkası dolarak ilerlesin, ✓ zıplasın */
 .halka { transition: stroke-dasharray .6s cubic-bezier(.3, .9, .4, 1); }
