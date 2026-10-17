@@ -35,8 +35,8 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 | Başlangıç seansı | elle eklerken ayar (varsayılan 1); başka terapistten geçen hasta için ör. 3 |
 | Seans ilerleme | "Seans yapıldı" butonu; **son sözü Excel söyler** — yeni dosya seansları günceller |
 | Kategori | **AĞRI** → yalnızca VAS. **ROM** → VAS + ROM |
-| VAS | 0–10, **11 buton** |
-| ROM | **butonla**: hareket seç → 10°'lik derece ızgarası (0…180) + `−5`/`+5`. Son değer önceden seçili. Genelde **omuz** (fleksiyon, abdüksiyon, ekstansiyon, iç/dış rotasyon). Birden fazla hareket ölçülür |
+| VAS | 0–10, **kaydırılabilir çizgi** (yeşil→kırmızı); bırakınca kaydedilir. İlk sürümdeki 11 buton kullanıcı isteğiyle değişti |
+| ROM | **yay sürüklenir** (5°'lik adım) + hızlı butonlar (0, 30…180) + `±5`/`±10`. Son değer önceden seçili. Genelde **omuz** (fleksiyon, abdüksiyon, ekstansiyon, iç/dış rotasyon). Birden fazla hareket ölçülür |
 | ROM sağ/sol | hastanın **etkilenen tarafı** seçilir; **iki taraf da ölçülür**, sağlıklı taraf kıyas için |
 | Ölçüm zamanı | istendiği an ("Ölçüm al"); **ilk ve son seans kesin** — son seanslara yaklaşınca hatırlatma |
 | Program | **cihazlar** (çip): `US` `HOTPACK` `COLDPACK` `VAKUM IF` `EGZ` `TENS` `ES` `PARAFİN` — **ESWT YOK**. **Manuel terapi** (ör. MOB + bölge: skapula, omuz kapsülü). **Egzersizler**: ad + set × tekrar (+ ağırlık), `−`/`+` ile |
@@ -47,6 +47,18 @@ yazıldı; durum için en alttaki "Durum" bölümüne bak.
 | Tasarım | ilk sade taslak "fikir güzel ama daha havalı olsun" dedirtti → koyu tema, canlı vurgu renkleri, büyük rakamlar |
 | Rapor | **foto özet** (tek görsel): ad, seans, VAS ilk→son, ROM ilk→son (+ sağlıklı taraf), program. Paylaş menüsü → WhatsApp |
 | Kapsam | yalnızca klinik taraf; ödeme/randevu YOK |
+
+## Kullanım kolaylığı (2026-10-17, kullanıcı onayladı)
+
+- ana ekran: **sola/sağa kaydır = saat değiştir**; büyük saate dokun = saat seçici; başka saatteyken **"Şimdi"**
+- kutuda bugünün durumu: **✓** (seans yapıldı), **VAS n**
+- kutuya **basılı tut = seans yapıldı** (+ "Geri al")
+- **saat özeti görünümü** (üstteki düğme, ayarda hatırlanır): her hastanın programı ve son notu kartta — kullanıcı "kilit ekranında görmek" istedi; PWA'da widget/kilit ekranı İMKÂNSIZ, bu onun karşılığı
+- hasta ekranı: **sola/sağa kaydır = aynı saatteki diğer hasta**; sol kenardan kaydır = geri (ana ekrana eklenmiş PWA'da iOS'un geri hareketi yok)
+- "Seans yapıldı", saat geçişi, ROM "Kaydet" **alt sabit barda** (başparmak)
+- "Emin misin?" yerine **Geri al** bildirimi (bitir, not sil, liste öğesi sil, VAS sil). Toplu/kalıcı silmelerde (hasta sil, deneme sil, yedek yükle) onay penceresi KALDI
+- iPhone web uygulamasında **titreşim yok** — geri bildirim animasyonla
+- sırada: **program şablonları** (kararlarda vardı, yapılmadı)
 
 ## Excel içe aktarma
 
@@ -94,6 +106,7 @@ klasör olduğu gibi yüklenir.
 | `js/db.js` | IndexedDB |
 | `js/kilit.js` | şifreli yedek (AES-GCM, paroladan PBKDF2) |
 | `js/rapor.js` | foto özet (canvas → PNG) |
+| `js/dokunma.js` | kaydırma (saat/hasta), kenardan geri, basılı tutma, basılı tutunca tekrar, sürükleme. Tıklama yutma **süreli** (400 ms): ekran araya yeniden çizilirse bir sonraki dokunuş yutulmasın |
 | `js/deneme.js` | menüden "Deneme hastaları ekle/sil": uydurma hastalar (`kaynak: "deneme"`), ölçüm geçmişi, program, not. Sil yalnızca bunlara dokunur |
 | `sw.js` | çevrimdışı önbellek — **dosya değişince `SURUM`'u artır** |
 | `vendor/xlsx.full.min.js` | SheetJS 0.20.3 (cdn.sheetjs.com; npm'deki eski) |

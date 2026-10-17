@@ -7,13 +7,14 @@
 import * as db from "./db.js";
 import {
   VARSAYILAN_LISTELER, SEANS_SECENEKLERI, bugun, tarihYaz, tamAd, acilisSaati,
-  saatListesi, sonOlcumZamani, vasOzet, romOzet, guncelProgram, egzersizMetni,
+  saatListesi, sonOlcumZamani, vasOzet, romOzet, guncelProgram, programMetni,
   excelBirlestir,
 } from "./model.js";
 import { benimHastalarim, trKatla, SAYFA } from "./devam.js";
 import { yedekSifrele, yedekCoz } from "./kilit.js";
 import { ozetCiz } from "./rapor.js";
 import { denemeEkle, denemeSayisi, denemeSil } from "./deneme.js";
+import { dokunmaDinle, surukle, tiklamaYutulsunMu } from "./dokunma.js";
 
 const $ekran = document.getElementById("ekran");
 const $dosya = document.getElementById("dosya");
@@ -24,6 +25,9 @@ const d = {
   anaSaat: null,
   arama: null,
   listeler: null,
+  gorunum: "kutu",      // ana ekran: "kutu" | "ozet" (ayarda saklanır)
+  saatSecici: false,
+  animasyon: null,      // "sol" | "sag": sonraki çizimde kayarak gir
 };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
@@ -36,16 +40,28 @@ const ikon = {
   arti: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   menu: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   kalem: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  liste: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  kutu: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>',
+  not: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
   tik: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
   carpi: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 
-function bildir(metin) {
+// geriAl verilirse bildirimde "Geri al" düğmesi çıkar ve biraz daha uzun
+// durur. "Emin misin?" pencereleri yerine bu kullanılıyor.
+function bildir(metin, geriAl) {
   const b = document.getElementById("bildirim");
-  b.textContent = metin;
+  b.innerHTML = esc(metin) + (geriAl ? ' <button id="geriAlBtn">Geri al</button>' : "");
+  if (geriAl) {
+    document.getElementById("geriAlBtn").onclick = async () => {
+      b.classList.remove("goster");
+      await geriAl();
+      ciz();
+    };
+  }
   b.classList.add("goster");
   clearTimeout(bildir.z);
-  bildir.z = setTimeout(() => b.classList.remove("goster"), 2200);
+  bildir.z = setTimeout(() => b.classList.remove("goster"), geriAl ? 5000 : 2200);
 }
 
 async function listeler() {
@@ -78,10 +94,23 @@ window.addEventListener("popstate", (o) => {
   ciz();
 });
 
+// Ekran HTML'i yerine konduktan sonra çalışacak işler (sürükleme bağlamak gibi).
+let kurulumlar = [];
+const sonra = (f) => kurulumlar.push(f);
+
 async function ciz() {
   const ekran = ekranlar[d.sayfa.ad] || ekranlar.ana;
+  kurulumlar = [];
   try {
     $ekran.innerHTML = await ekran(d.sayfa);
+    for (const f of kurulumlar) f();
+    if (d.animasyon) {
+      const yon = d.animasyon;
+      d.animasyon = null;
+      $ekran.classList.remove("kay-sol", "kay-sag");
+      void $ekran.offsetWidth; // animasyonu yeniden başlat
+      $ekran.classList.add(`kay-${yon}`);
+    }
   } catch (h) {
     console.error(h);
     $ekran.innerHTML = `<div class="bos">Bir sorun çıktı.<br><span class="soluk">${esc(h.message)}</span><br><br><button data-e="anaya">Ana ekrana dön</button></div>`;
@@ -108,21 +137,49 @@ function cubuk(h) {
   return `<div class="cubuk"><i style="width:${oran}%;background:${renkOf(h)}"></i></div>`;
 }
 
-function hastaKutusu(h) {
+const bugunYapildi = (h) => (h.seansGunleri || []).includes(bugun());
+
+// Kutunun sağ üstü: bugün seans yapıldıysa ✓, VAS girildiyse değeri.
+function bugunRozeti(h, vas) {
+  return `<span class="bugun">${vas != null ? `<span class="vas-mini">VAS ${vas}</span>` : ""}${bugunYapildi(h) ? `<span class="tamam">${ikon.tik}</span>` : ""}</span>`;
+}
+
+function hastaKutusu(h, vas) {
   const uyari = sonOlcumZamani(h);
-  return `<button class="hasta-kutu kart ${uyari ? "uyari" : ""}" data-e="hasta" data-id="${h.id}">
-    <div class="satir" style="gap:4px;flex-wrap:wrap">${kategoriRozeti(h)}${uyari ? '<span class="rozet r-uyari">SON ÖLÇÜM</span>' : ""}</div>
+  return `<button class="hasta-kutu kart ${uyari ? "uyari" : ""} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
+    <div class="satir ara" style="gap:4px;align-items:flex-start">
+      <div class="satir" style="gap:4px;flex-wrap:wrap">${kategoriRozeti(h)}${uyari ? '<span class="rozet r-uyari">SON ÖLÇÜM</span>' : ""}</div>
+      ${bugunRozeti(h, vas)}
+    </div>
     <div class="ad">${esc(tamAd(h))}</div>
     <div class="sayi">${h.seans}<small> / ${h.toplam}</small></div>
     ${cubuk(h)}
   </button>`;
 }
 
+// Saat özeti görünümü: program ve son not da görünür.
+function ozetKarti(h, vas, program, not) {
+  const uyari = sonOlcumZamani(h);
+  return `<button class="ozet-kart kart ${uyari ? "uyari" : ""} ${bugunYapildi(h) ? "yapildi" : ""}" data-e="hasta" data-uzun data-id="${h.id}">
+    <div class="satir ara">
+      <span class="ad">${esc(tamAd(h))}</span>
+      <span class="satir" style="gap:8px"><span class="soluk" style="font-size:13px">${h.seans}/${h.toplam}</span>${bugunRozeti(h, vas)}</span>
+    </div>
+    <div class="satir" style="gap:4px;flex-wrap:wrap">${kategoriRozeti(h)}${uyari ? '<span class="rozet r-uyari">SON ÖLÇÜM</span>' : ""}</div>
+    <div class="ozet-program">${program ? esc(programMetni(program)) : '<span class="soluk">Program yok</span>'}</div>
+    ${not ? `<div class="ozet-not">${ikon.not} ${esc(not.metin)}</div>` : ""}
+    ${cubuk(h)}
+  </button>`;
+}
+
+// Aynı saatin hastaları hep aynı sırada: eklenme sırası (id zamana dayalı).
+const saatSirasi = (a, b) => (a.id < b.id ? -1 : 1);
+
 const adim = (eylem, deger, ek = "") => `
   <span class="adim">
-    <button data-e="${eylem}" data-d="-1" ${ek}>−</button>
+    <button data-e="${eylem}" data-d="-1" data-tekrar ${ek}>−</button>
     <b>${deger}</b>
-    <button data-e="${eylem}" data-d="1" ${ek}>+</button>
+    <button data-e="${eylem}" data-d="1" data-tekrar ${ek}>+</button>
   </span>`;
 
 async function hastaVerisi(id) {
@@ -167,6 +224,7 @@ ekranlar.ana = async () => {
         ${ortaYazi}
       </div>
       <div class="satir" style="gap:6px">
+        <button class="ikon-btn" data-e="gorunum" aria-label="Görünümü değiştir">${d.gorunum === "kutu" ? ikon.liste : ikon.kutu}</button>
         <button class="ikon-btn" data-e="arama" aria-label="Ara">${ikon.ara}</button>
         <button class="ikon-btn" data-e="menu" aria-label="Menü">${ikon.menu}</button>
         <button class="ikon-btn secili" data-e="ekle" aria-label="Hasta ekle">${ikon.arti}</button>
@@ -201,19 +259,55 @@ ekranlar.ana = async () => {
   }
 
   if (!saatler.includes(d.anaSaat)) d.anaSaat = acilisSaati(saatler);
+  const simdi = acilisSaati(saatler);
   const i = saatler.indexOf(d.anaSaat);
-  const buSaat = hastalar.filter((h) => h.saat === d.anaSaat);
+  const buSaat = hastalar.filter((h) => h.saat === d.anaSaat).sort(saatSirasi);
   const rom = buSaat.filter((h) => h.kategori === "rom").length;
+  const yapildi = buSaat.filter(bugunYapildi).length;
   const onceki = saatler[i - 1], sonraki = saatler[i + 1];
 
+  // bugünün VAS'ı; özet görünümünde güncel program ve son not
+  const idler = new Set(buSaat.map((h) => h.id));
+  const vasBugun = {};
+  const programlar = {}, notlar = {};
+  for (const o of await db.hepsi("olcumler")) {
+    if (idler.has(o.hastaId) && o.tur === "vas" && o.tarih === bugun()) vasBugun[o.hastaId] = o.deger;
+  }
+  if (d.gorunum === "ozet") {
+    for (const h of buSaat) {
+      programlar[h.id] = guncelProgram(await db.hastaninki("programlar", h.id));
+      notlar[h.id] = (await db.hastaninki("notlar", h.id)).sort((a, b) => b.zaman - a.zaman)[0];
+    }
+  }
+
+  const saatBasi = `
+    <div class="satir" style="gap:10px;align-items:baseline">
+      <button class="saat-buyuk saat-btn" data-e="saatSecici">${d.anaSaat}</button>
+      ${d.anaSaat !== simdi ? '<button class="cip simdi-btn" data-e="simdi">Şimdi</button>' : ""}
+    </div>
+    <div class="soluk" style="margin-top:4px">${buSaat.length} hasta · ${rom} ROM · ${buSaat.length - rom} ağrı${yapildi ? ` · <span style="color:var(--rom)">${yapildi} yapıldı</span>` : ""}</div>`;
+
+  const secici = d.saatSecici ? `
+    <div class="kart izgara" style="grid-template-columns:repeat(4,1fr);gap:6px">
+      ${saatler.map((s) => {
+        const n = hastalar.filter((h) => h.saat === s).length;
+        return `<button data-e="saatSec" data-s="${s}" class="${s === d.anaSaat ? "secili" : ""} ${s === simdi ? "su-an" : ""}" style="padding:8px 0">${s}<br><span style="font-size:11px;opacity:.7">${n} hasta</span></button>`;
+      }).join("")}
+    </div>` : "";
+
   return `
-    ${ust(`<div class="saat-buyuk">${d.anaSaat}</div>
-      <div class="soluk" style="margin-top:4px">${buSaat.length} hasta · ${rom} ROM · ${buSaat.length - rom} ağrı</div>`)}
-    <div class="izgara iki">${buSaat.map(hastaKutusu).join("")}</div>
-    <div class="saat-gecis">
-      <button data-e="saat" data-s="${onceki || ""}" ${onceki ? "" : 'style="visibility:hidden"'}>‹ ${onceki || ""}</button>
-      <div class="noktalar">${saatler.map((s) => `<i class="${s === d.anaSaat ? "su" : ""}"></i>`).join("")}</div>
-      <button data-e="saat" data-s="${sonraki || ""}" ${sonraki ? "" : 'style="visibility:hidden"'}>${sonraki || ""} ›</button>
+    ${ust(saatBasi)}
+    ${secici}
+    ${d.gorunum === "ozet"
+      ? `<div class="izgara">${buSaat.map((h) => ozetKarti(h, vasBugun[h.id], programlar[h.id], notlar[h.id])).join("")}</div>`
+      : `<div class="izgara iki">${buSaat.map((h) => hastaKutusu(h, vasBugun[h.id])).join("")}</div>`}
+    <div class="soluk ipucu">Kaydır: saat değiştir · Basılı tut: seans yapıldı</div>
+    <div class="alt-bar">
+      <div class="saat-gecis">
+        <button data-e="saat" data-s="${onceki || ""}" ${onceki ? "" : 'style="visibility:hidden"'}>‹ ${onceki || ""}</button>
+        <div class="noktalar">${saatler.map((s) => `<i class="${s === d.anaSaat ? "su" : ""}"></i>`).join("")}</div>
+        <button data-e="saat" data-s="${sonraki || ""}" ${sonraki ? "" : 'style="visibility:hidden"'}>${sonraki || ""} ›</button>
+      </div>
     </div>`;
 };
 
@@ -222,23 +316,30 @@ ekranlar.ana = async () => {
 ekranlar.hasta = async ({ id }) => {
   const { hasta: h, olcumler, programlar, notlar } = await hastaVerisi(id);
   if (!h) return ekranlar.ana();
-  const bugunYapildi = (h.seansGunleri || []).includes(bugun());
+  const yapildi = bugunYapildi(h);
   const vasBugun = olcumler.find((o) => o.tur === "vas" && o.tarih === bugun());
+  const vasSon = vasOzet(olcumler)?.son;
   const vasVar = olcumler.some((o) => o.tur === "vas");
   const p = guncelProgram(programlar);
   const oran = h.toplam ? Math.min(1, h.seans / h.toplam) : 0;
   const cevre = 2 * Math.PI * 24;
   const bitti = h.durum === "bitti";
 
-  const vasRenk = ["#27500A", "#27500A", "#3B6D11", "#3B6D11", "#BA7517", "#854F0B", "#854F0B", "#993C1D", "#993C1D", "#A32D2D", "#A32D2D"];
-  const vasYazi = ["#C0DD97", "#C0DD97", "#EAF3DE", "#EAF3DE", "#FAEEDA", "#FAEEDA", "#FAEEDA", "#FAECE7", "#FAECE7", "#FCEBEB", "#FCEBEB"];
+  // Aynı saatteki hastalar: sola/sağa kaydırınca aralarında gezilir.
+  const kardes = bitti ? [h] : (await db.hepsi("hastalar"))
+    .filter((x) => x.durum === "aktif" && x.saat === h.saat).sort(saatSirasi);
+  d.kardesler = kardes.map((x) => x.id);
+  const sira = d.kardesler.indexOf(h.id);
+  sonra(() => vasBagla(vasBugun?.deger ?? null));
 
   const vOz = vasOzet(olcumler);
   const rOz = h.kategori === "rom" ? romOzet(olcumler, h) : [];
   const sonNotlar = [...notlar].sort((a, b) => b.zaman - a.zaman).slice(0, 2);
 
   return `
-    ${ustBar("", `<button class="ikon-btn" data-e="duzenle" data-id="${h.id}" aria-label="Düzenle">${ikon.kalem}</button>`)}
+    ${ustBar(kardes.length > 1 ? `<span class="soluk" style="font-size:13px">${h.saat}</span>
+        <div class="noktalar" style="justify-content:center;margin-top:4px">${kardes.map((x, i) => `<i class="${i === sira ? "su" : ""}"></i>`).join("")}</div>` : "",
+      `<button class="ikon-btn" data-e="duzenle" data-id="${h.id}" aria-label="Düzenle">${ikon.kalem}</button>`)}
     <div class="satir" style="gap:12px">
       <svg width="64" height="64" viewBox="0 0 58 58" aria-hidden="true">
         <circle cx="29" cy="29" r="24" fill="none" stroke="#2C2C2A" stroke-width="6"/>
@@ -261,13 +362,20 @@ ekranlar.hasta = async ({ id }) => {
       <div class="kart"><div class="soluk" style="margin-bottom:8px">Etkilenen taraf</div>
         <div class="izgara iki"><button class="ikinci-btn" data-e="taraf" data-t="sag">Sağ</button><button class="ikinci-btn" data-e="taraf" data-t="sol">Sol</button></div></div>` : ""}
 
-    ${bitti ? "" : bugunYapildi
-      ? `<button class="ana-btn yapildi" data-e="seansGeriAl">${ikon.tik} Bugün yapıldı · geri al</button>`
-      : `<button class="ana-btn" data-e="seansYap">${ikon.tik} Seans yapıldı (${h.seans} → ${h.seans + 1})</button>`}
-
-    <div class="bolum">VAS · bugün</div>
-    <div class="vas">${vasRenk.map((z, n) => `
-      <button data-e="vas" data-v="${n}" class="${vasBugun?.deger === n ? "secili" : ""}" style="background:${z};color:${vasYazi[n]}">${n}</button>`).join("")}
+    <div class="vas-alan" data-kaydirma="yok">
+      <div class="satir ara">
+        <span class="bolum" style="margin:0">VAS · bugün</span>
+        <span class="satir" style="gap:10px">
+          ${vasBugun ? '<button class="vas-sil" data-e="vasSil">Sil</button>' : ""}
+          <b id="vasDeger" class="vas-deger ${vasBugun ? "" : "bos-deger"}">${vasBugun ? vasBugun.deger : "—"}</b>
+        </span>
+      </div>
+      <div class="vas-iz" id="vasIz">
+        <div class="vas-renk"></div>
+        <div class="vas-tutamak ${vasBugun ? "" : "hayalet"}" id="vasTutamak" style="left:${((vasBugun?.deger ?? vasSon?.deger ?? 5) * 10)}%"></div>
+      </div>
+      <div class="vas-olcek">${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<span>${n}</span>`).join("")}</div>
+      ${!vasBugun && vasSon ? `<div class="soluk" style="margin-top:2px">Son: ${vasSon.deger} (${tarihYaz(vasSon.tarih)}) · çizgide kaydır</div>` : ""}
     </div>
 
     <div class="izgara ${h.kategori === "rom" ? "uc" : "iki"}">
@@ -313,8 +421,44 @@ ekranlar.hasta = async ({ id }) => {
       </button>` : ""}
 
     ${bitti ? "" : `<button class="tehlike-btn" data-e="bitir" style="color:var(--soluk)">Tedaviyi bitir (arşive al)</button>`}
+    ${bitti ? "" : `<div class="alt-bar">${yapildi
+      ? `<button class="ana-btn yapildi" data-e="seansGeriAl">${ikon.tik} Bugün yapıldı · geri al</button>`
+      : `<button class="ana-btn" data-e="seansYap">${ikon.tik} Seans yapıldı (${h.seans} → ${h.seans + 1})</button>`}</div>`}
   `;
 };
+
+// VAS çizgisi: parmak çizgide gezdikçe değer canlı değişir, bırakınca kaydedilir.
+function vasBagla(bugunku) {
+  const iz = document.getElementById("vasIz");
+  if (!iz) return;
+  const tutamak = document.getElementById("vasTutamak");
+  const yazi = document.getElementById("vasDeger");
+  surukle(iz, {
+    konumdan: (x) => {
+      const k = iz.getBoundingClientRect();
+      return Math.max(0, Math.min(10, Math.round(((x - k.left) / k.width) * 10)));
+    },
+    degisti: (v) => {
+      tutamak.style.left = `${v * 10}%`;
+      tutamak.classList.remove("hayalet");
+      yazi.textContent = v;
+      yazi.classList.remove("bos-deger");
+    },
+    bitti: (v) => { if (v !== bugunku) vasYaz(v); },
+  });
+}
+
+async function vasYaz(deger) {
+  const id = sayfaId();
+  const h = await db.al("hastalar", id);
+  const varolan = (await db.hastaninki("olcumler", id)).find((o) => o.tur === "vas" && o.tarih === bugun());
+  await db.yaz("olcumler", {
+    id: varolan?.id || db.yeniId(), hastaId: id, tarih: bugun(), zaman: Date.now(),
+    seans: h.seans, tur: "vas", deger,
+  });
+  bildir(`VAS ${deger} kaydedildi`);
+  ciz();
+}
 
 // ------------------------------------------------------------ ROM ölçümü
 
@@ -339,8 +483,7 @@ ekranlar.rom = async ({ id }) => {
   // gösterge: 0° solda, 180° sağda, yarım daire
   const aci = Math.PI * (1 - Math.min(180, r.deger) / 180);
   const x = 110 + 90 * Math.cos(aci), y = 110 - 90 * Math.sin(aci);
-  const yay = r.deger > 0
-    ? `<path d="M20 110 A90 90 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}" fill="none" stroke="#5DCAA5" stroke-width="12" stroke-linecap="round"/>` : "";
+  sonra(romBagla);
 
   return `
     ${ustBar(`ROM · ${esc(h.ad)}`)}
@@ -351,10 +494,11 @@ ekranlar.rom = async ({ id }) => {
     <div class="kaydirma">
       ${l.hareketler.map((m) => `<button class="cip ${m === r.hareket ? "beyaz-secili" : ""}" data-e="romHareket" data-m="${esc(m)}">${esc(m)}${bugunku(m) ? '<span class="kayitli">✓</span>' : ""}</button>`).join("")}
     </div>
-    <svg viewBox="0 0 220 128" width="100%" style="max-height:220px" aria-hidden="true">
+    <svg id="romGosterge" data-kaydirma="yok" viewBox="0 0 220 128" width="100%" style="max-height:240px;touch-action:none" aria-hidden="true">
       <path d="M20 110 A90 90 0 0 1 200 110" fill="none" stroke="#2C2C2A" stroke-width="12" stroke-linecap="round"/>
-      ${yay}
-      <text x="110" y="96" text-anchor="middle" fill="#F1EFE8" font-size="36" font-weight="600">${r.deger}°</text>
+      <path id="romYay" d="${romYayi(r.deger)}" fill="none" stroke="#5DCAA5" stroke-width="12" stroke-linecap="round"/>
+      <circle id="romTutamak" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="#F1EFE8"/>
+      <text id="romYazi" x="110" y="96" text-anchor="middle" fill="#F1EFE8" font-size="36" font-weight="600">${r.deger}°</text>
       <text x="110" y="124" text-anchor="middle" fill="#888780" font-size="10">önceki ${once ? once.deger + "°" : "—"} · karşı taraf ${karsi ? karsi.deger + "°" : "—"}</text>
     </svg>
     <div class="izgara" style="grid-template-columns:repeat(7,1fr);gap:5px">
@@ -363,9 +507,48 @@ ekranlar.rom = async ({ id }) => {
     <div class="izgara dort">
       ${[-10, -5, 5, 10].map((v) => `<button class="ikinci-btn" data-e="romArti" data-v="${v}">${v > 0 ? "+" : "−"}${Math.abs(v)}</button>`).join("")}
     </div>
-    <button class="ana-btn" data-e="romKaydet">Kaydet</button>
+    <div class="soluk" style="text-align:center">Yayın üzerinde parmağını kaydır</div>
+    <div class="alt-bar"><button class="ana-btn" data-e="romKaydet">Kaydet · ${r.taraf === "sag" ? "Sağ" : "Sol"} ${esc(r.hareket)}</button></div>
   `;
 };
+
+// 0° solda, 180° sağda; yarıçap 90, merkez (110, 110).
+function romNokta(deger) {
+  const aci = Math.PI * (1 - Math.min(180, deger) / 180);
+  return [110 + 90 * Math.cos(aci), 110 - 90 * Math.sin(aci)];
+}
+
+function romYayi(deger) {
+  if (deger <= 0) return "M20 110";
+  const [x, y] = romNokta(deger);
+  return `M20 110 A90 90 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
+}
+
+function romBagla() {
+  const svg = document.getElementById("romGosterge");
+  if (!svg) return;
+  surukle(svg, {
+    konumdan: (cx, cy) => {
+      const nokta = svg.createSVGPoint();
+      nokta.x = cx;
+      nokta.y = cy;
+      const p = nokta.matrixTransform(svg.getScreenCTM().inverse());
+      // merkezin altına inen parmak: en yakın uca yapış
+      const aci = Math.atan2(Math.max(0, 110 - p.y), p.x - 110);
+      const deger = Math.round(((Math.PI - aci) / Math.PI) * 180 / 5) * 5;
+      return Math.max(0, Math.min(180, deger));
+    },
+    degisti: (v) => {
+      const [x, y] = romNokta(v);
+      document.getElementById("romYay").setAttribute("d", romYayi(v));
+      const t = document.getElementById("romTutamak");
+      t.setAttribute("cx", x.toFixed(1));
+      t.setAttribute("cy", y.toFixed(1));
+      document.getElementById("romYazi").textContent = `${v}°`;
+    },
+    bitti: (v) => { d.rom.deger = v; ciz(); },
+  });
+}
 
 // ------------------------------------------------------------ program
 
@@ -625,45 +808,39 @@ const eylemler = {
   // ana
   arama: () => { d.arama = ""; ciz().then(() => document.getElementById("arama")?.focus()); },
   aramaKapat: () => { d.arama = null; ciz(); },
-  saat: (v) => { if (v.s) { d.anaSaat = v.s; ciz(); } },
-  hasta: (v) => git("hasta", { id: v.id }),
+  saat: (v) => { if (v.s) saataGit(v.s); },
+  saatSecici: () => { d.saatSecici = !d.saatSecici; ciz(); },
+  saatSec: (v) => { d.saatSecici = false; saataGit(v.s); },
+  simdi: async () => {
+    const saatler = saatListesi((await db.hepsi("hastalar")).filter((h) => h.durum === "aktif"));
+    saataGit(acilisSaati(saatler));
+  },
+  async gorunum() {
+    d.gorunum = d.gorunum === "kutu" ? "ozet" : "kutu";
+    await db.ayarYaz("gorunum", d.gorunum);
+    ciz();
+  },
+  hasta: (v) => { d.saatSecici = false; git("hasta", { id: v.id }); },
   ekle: () => { d.form = null; git("form", {}); },
   menu: () => git("menu"),
 
   // hasta
   duzenle: (v) => { d.form = null; git("form", { id: v.id }); },
   async seansYap() {
-    const h = await db.al("hastalar", sayfaId());
-    h.seans += 1;
-    h.seansGunleri = [...(h.seansGunleri || []), bugun()];
-    await db.yaz("hastalar", h);
-    bildir(`Seans ${h.seans} kaydedildi`);
+    const h = await seansIsle(sayfaId(), 1);
+    bildir(`Seans ${h.seans} kaydedildi`, () => seansIsle(h.id, -1));
     ciz();
   },
   async seansGeriAl() {
-    const h = await db.al("hastalar", sayfaId());
-    const g = h.seansGunleri || [];
-    const i = g.lastIndexOf(bugun());
-    if (i >= 0) { g.splice(i, 1); h.seans = Math.max(0, h.seans - 1); }
-    h.seansGunleri = g;
-    await db.yaz("hastalar", h);
+    await seansIsle(sayfaId(), -1);
     ciz();
   },
-  async vas(v) {
+  async vasSil() {
     const id = sayfaId();
-    const deger = Number(v.v);
-    const h = await db.al("hastalar", id);
     const varolan = (await db.hastaninki("olcumler", id)).find((o) => o.tur === "vas" && o.tarih === bugun());
-    if (varolan && varolan.deger === deger) {
-      await db.sil("olcumler", varolan.id);
-      bildir("VAS silindi");
-    } else {
-      await db.yaz("olcumler", {
-        id: varolan?.id || db.yeniId(), hastaId: id, tarih: bugun(), zaman: Date.now(),
-        seans: h.seans, tur: "vas", deger,
-      });
-      bildir(`VAS ${deger} kaydedildi`);
-    }
+    if (!varolan) return;
+    await db.sil("olcumler", varolan.id);
+    bildir("Bugünkü VAS silindi", () => db.yaz("olcumler", varolan));
     ciz();
   },
   async taraf(v) {
@@ -685,12 +862,12 @@ const eylemler = {
     ciz();
   },
   async bitir() {
-    if (!confirm("Tedavi bitti olarak işaretlensin mi? Hasta 'Biten hastalar'a taşınır.")) return;
     const h = await db.al("hastalar", sayfaId());
+    const eski = { ...h };
     h.durum = "bitti";
     h.bitis = bugun();
     await db.yaz("hastalar", h);
-    bildir("Biten hastalara taşındı");
+    bildir("Biten hastalara taşındı", () => db.yaz("hastalar", eski));
     ciz();
   },
   async geriAl() {
@@ -775,10 +952,11 @@ const eylemler = {
   },
   async listeSil(v, el) {
     const l = await listeler();
-    const ad = l[v.l][Number(el.dataset.i)];
-    if (!confirm(`"${ad}" listeden çıkarılsın mı? Eski kayıtlar etkilenmez.`)) return;
-    l[v.l] = l[v.l].filter((_, i) => i !== Number(el.dataset.i));
+    const eski = [...l[v.l]];
+    const ad = eski[Number(el.dataset.i)];
+    l[v.l] = eski.filter((_, i) => i !== Number(el.dataset.i));
     await listeKaydet();
+    bildir(`"${ad}" listeden çıkarıldı`, async () => { l[v.l] = eski; await listeKaydet(); });
     ciz();
   },
 
@@ -791,8 +969,9 @@ const eylemler = {
     ciz();
   },
   async notSil(v) {
-    if (!confirm("Not silinsin mi?")) return;
+    const not = await db.al("notlar", v.n);
     await db.sil("notlar", v.n);
+    bildir("Not silindi", () => db.yaz("notlar", not));
     ciz();
   },
 
@@ -927,6 +1106,40 @@ const eylemler = {
   },
 };
 
+async function seansIsle(id, yon) {
+  const h = await db.al("hastalar", id);
+  const g = h.seansGunleri || [];
+  if (yon > 0) {
+    h.seans += 1;
+    g.push(bugun());
+  } else {
+    const i = g.lastIndexOf(bugun());
+    if (i >= 0) { g.splice(i, 1); h.seans = Math.max(0, h.seans - 1); }
+  }
+  h.seansGunleri = g;
+  await db.yaz("hastalar", h);
+  return h;
+}
+
+function saataGit(saat) {
+  if (!saat || saat === d.anaSaat) return;
+  d.animasyon = d.anaSaat && saat < d.anaSaat ? "sag" : "sol";
+  d.anaSaat = saat;
+  ciz();
+}
+
+// Hasta ekranında aynı saatteki bir sonraki/önceki hasta.
+function kardeseGit(adim) {
+  const i = d.kardesler?.indexOf(d.sayfa.id) ?? -1;
+  const yeni = d.kardesler?.[i + adim];
+  if (i < 0 || !yeni) return;
+  d.sayfa = { ad: "hasta", id: yeni };
+  history.replaceState(d.sayfa, "");
+  d.animasyon = adim > 0 ? "sol" : "sag";
+  ciz();
+  window.scrollTo(0, 0);
+}
+
 function formOku() {
   const ad = document.getElementById("fAd"), soyad = document.getElementById("fSoyad");
   if (ad) d.form.ad = ad.value.trim();
@@ -960,10 +1173,40 @@ async function excelOku(dosya) {
 // --------------------------------------------------------- olaylar
 
 $ekran.addEventListener("click", (o) => {
+  if (tiklamaYutulsunMu()) return;
   const el = o.target.closest("[data-e]");
   if (!el || !$ekran.contains(el)) return;
   const f = eylemler[el.dataset.e];
   if (f) f(el.dataset, el);
+});
+
+dokunmaDinle($ekran, {
+  async kaydir(yon) {
+    if (d.sayfa.ad === "ana" && d.arama === null) {
+      const saatler = saatListesi((await db.hepsi("hastalar")).filter((h) => h.durum === "aktif"));
+      const i = saatler.indexOf(d.anaSaat);
+      saataGit(saatler[i + (yon === "sol" ? 1 : -1)]);
+    } else if (d.sayfa.ad === "hasta") {
+      kardeseGit(yon === "sol" ? 1 : -1);
+    }
+  },
+  // Ana ekrana eklenen uygulamada iPhone'un kenardan geri hareketi yok.
+  kenardanGeri() {
+    if (d.sayfa.ad !== "ana") geri();
+  },
+  // Ana ekranda kutuya basılı tutma: seans yapıldı.
+  async uzunBas(el) {
+    const id = el.dataset.id;
+    const h = await db.al("hastalar", id);
+    if (bugunYapildi(h)) { bildir(`${h.ad}: bugün zaten yapıldı`); return; }
+    await seansIsle(id, 1);
+    bildir(`${tamAd(h)} · seans ${h.seans + 1}`, () => seansIsle(id, -1));
+    ciz();
+  },
+  tekrar(veri) {
+    const f = eylemler[veri.e];
+    if (f) f(veri, { dataset: veri });
+  },
 });
 
 $ekran.addEventListener("input", (o) => {
@@ -998,4 +1241,4 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 
 history.replaceState(d.sayfa, "");
 db.kaliciIste();
-ciz();
+db.ayarAl("gorunum", "kutu").then((g) => { d.gorunum = g; ciz(); });
